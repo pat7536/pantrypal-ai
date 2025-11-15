@@ -284,6 +284,7 @@ async function generateRecipes(params) {
  */
 function generateMockRecipes(params) {
     const {
+        prompt = '',
         ingredients = '',
         dietaryPreference = 'none',
         mealType = 'any',
@@ -296,9 +297,16 @@ function generateMockRecipes(params) {
         .map(i => i.trim().toLowerCase())
         .filter(i => i.length > 0);
 
-    // If no ingredients provided, return empty array
-    if (ingredientList.length === 0) {
+    // If neither prompt nor ingredients provided, return empty array
+    if (!prompt && ingredientList.length === 0) {
         return [];
+    }
+
+    // If only prompt is provided (no ingredients), generate generic recipes
+    if (prompt && ingredientList.length === 0) {
+        // Use generic ingredients for prompt-only requests
+        const genericIngredients = ['chicken', 'olive oil', 'garlic', 'salt', 'pepper'];
+        ingredientList.push(...genericIngredients);
     }
 
     const recipes = [];
