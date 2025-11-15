@@ -1,0 +1,28 @@
+{
+  "name": "pantrypal-ai",
+  "version": "3.0.0",
+  "description": "AI-powered recipe generator with Firebase cloud sync and OpenAI integration",
+  "main": "index.html",
+  "scripts": {
+    "dev": "vercel dev",
+    "build": "echo 'No build step required for static site'",
+    "deploy": "vercel --prod"
+  },
+  "keywords": [
+    "recipes",
+    "ai",
+    "openai",
+    "gpt-4",
+    "firebase",
+    "cooking",
+    "pantry",
+    "meal-planning"
+  ],
+  "author": "Patrick Johnson",
+  "license": "MIT",
+  "engines": {
+    "node": ">=18.x"
+  },
+  "dependencies": {},
+  "devDependencies": {}
+}

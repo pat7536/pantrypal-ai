@@ -1,11 +1,14 @@
 /**
  * pantry-vision.js
- * Placeholder module for pantry image scanning
- * Returns mock detected ingredients (no real ML yet)
+ * Pantry image scanning module for PantryPal AI
+ * Version 3.0: Now with OpenAI Vision API for real ingredient detection!
  */
 
+// Toggle between AI Vision and mock mode
+const USE_AI_VISION = true;
+
 /**
- * List of common pantry ingredients for mock detection
+ * List of common pantry ingredients for mock detection (fallback)
  */
 const commonIngredients = [
     // Vegetables
@@ -34,24 +37,78 @@ const commonIngredients = [
 ];
 
 /**
- * Process uploaded image and return mock detected ingredients
+ * Process uploaded image and detect ingredients (Main function)
  * @param {File} imageFile - Uploaded image file
  * @returns {Promise<Object>} - Promise resolving to detection results
  */
-function scanPantryImage(imageFile) {
-    return new Promise((resolve, reject) => {
-        if (!imageFile) {
-            reject(new Error('No image file provided'));
-            return;
+async function scanPantryImage(imageFile) {
+    if (!imageFile) {
+        throw new Error('No image file provided');
+    }
+
+    // Validate file type
+    if (!imageFile.type.startsWith('image/')) {
+        throw new Error('File must be an image');
+    }
+
+    if (USE_AI_VISION) {
+        return await scanPantryWithAI(imageFile);
+    } else {
+        return scanPantryMock(imageFile);
+    }
+}
+
+/**
+ * Scan pantry image using OpenAI Vision API (Version 3.0)
+ * @param {File} imageFile - Uploaded image file
+ * @returns {Promise<Object>} - Promise resolving to detection results
+ */
+async function scanPantryWithAI(imageFile) {
+    try {
+        console.log('Scanning pantry with OpenAI Vision...');
+
+        // Convert image to base64
+        const imageBase64 = await fileToBase64(imageFile);
+
+        // Call our serverless API
+        const response = await fetch('/api/scan-pantry', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ imageBase64 })
+        });
+
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.error || 'Failed to scan pantry');
         }
 
-        // Validate file type
-        if (!imageFile.type.startsWith('image/')) {
-            reject(new Error('File must be an image'));
-            return;
-        }
+        const data = await response.json();
+        console.log(`AI detected ${data.ingredients.length} ingredients (${data.tokensUsed} tokens)`);
 
-        // Simulate processing delay (as if real ML inference is happening)
+        return {
+            success: true,
+            ingredients: data.ingredients,
+            imageSize: imageFile.size,
+            processedAt: data.processedAt
+        };
+    } catch (error) {
+        console.error('Error with AI vision:', error);
+        console.log('Falling back to mock detection...');
+        // Fallback to mock if AI fails
+        return scanPantryMock(imageFile);
+    }
+}
+
+/**
+ * Mock pantry scanning (fallback/offline mode)
+ * @param {File} imageFile - Uploaded image file
+ * @returns {Promise<Object>} - Promise resolving to detection results
+ */
+function scanPantryMock(imageFile) {
+    return new Promise((resolve) => {
+        // Simulate processing delay
         setTimeout(() => {
             // Generate mock detected ingredients
             const detectedIngredients = generateMockIngredients();
@@ -64,6 +121,27 @@ function scanPantryImage(imageFile) {
                 processedAt: new Date().toISOString()
             });
         }, 1500); // 1.5 second simulated processing time
+    });
+}
+
+/**
+ * Convert File to base64 string
+ * @param {File} file - Image file
+ * @returns {Promise<string>} - Base64 encoded image
+ */
+function fileToBase64(file) {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+
+        reader.onload = () => {
+            resolve(reader.result);
+        };
+
+        reader.onerror = () => {
+            reject(new Error('Error reading file'));
+        };
+
+        reader.readAsDataURL(file);
     });
 }
 

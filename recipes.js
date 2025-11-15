@@ -1,8 +1,11 @@
 /**
  * recipes.js
- * Mock recipe generator for PantryPal AI
- * Generates placeholder recipes based on user inputs
+ * Recipe generator for PantryPal AI
+ * Version 3.0: Now with OpenAI-powered recipe generation!
  */
+
+// Toggle between AI and mock mode
+const USE_AI_RECIPES = true;
 
 /**
  * Generate unique recipe ID
@@ -10,6 +13,40 @@
  */
 function generateRecipeId() {
     return 'recipe-' + Date.now() + '-' + Math.random().toString(36).substr(2, 9);
+}
+
+/**
+ * Generate recipes using OpenAI API (Version 3.0)
+ * @param {Object} params - Recipe generation parameters
+ * @returns {Promise<Array>} - Array of AI-generated recipe objects
+ */
+async function generateRecipesWithAI(params) {
+    try {
+        console.log('Generating recipes with OpenAI...');
+
+        const response = await fetch('/api/generate-recipe', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(params)
+        });
+
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.error || 'Failed to generate recipes');
+        }
+
+        const data = await response.json();
+        console.log(`AI generated ${data.recipes.length} recipes (${data.tokensUsed} tokens)`);
+
+        return data.recipes;
+    } catch (error) {
+        console.error('Error with AI recipe generation:', error);
+        console.log('Falling back to mock recipes...');
+        // Fallback to mock recipes if AI fails
+        return generateMockRecipes(params);
+    }
 }
 
 /**
@@ -228,11 +265,24 @@ const genericRecipes = [
 ];
 
 /**
- * Generate mock recipes based on user input
+ * Main recipe generation function - routes to AI or mock based on USE_AI_RECIPES
+ * @param {Object} params - Recipe generation parameters
+ * @returns {Promise<Array>} - Array of generated recipe objects
+ */
+async function generateRecipes(params) {
+    if (USE_AI_RECIPES) {
+        return await generateRecipesWithAI(params);
+    } else {
+        return generateMockRecipes(params);
+    }
+}
+
+/**
+ * Generate mock recipes based on user input (fallback/offline mode)
  * @param {Object} params - Recipe generation parameters
  * @returns {Array} - Array of generated recipe objects
  */
-function generateRecipes(params) {
+function generateMockRecipes(params) {
     const {
         ingredients = '',
         dietaryPreference = 'none',
