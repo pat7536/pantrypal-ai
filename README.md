@@ -1,33 +1,40 @@
 # PantryPal AI
 
-**Version 1.0 - Local-Only Prototype**
+**Version 2.0 - Cloud-Enabled with Firebase** 🔥
 
 Discover dinner in seconds with AI-powered recipe suggestions based on your pantry ingredients.
 
 ![PantryPal AI](assets/placeholder-pantrypal.png)
 
+**Live Demo**: https://pantrypal-ai-delta.vercel.app
+
 ## Overview
 
-PantryPal AI is a modern cooking application that helps you transform your pantry ingredients into delicious meals. This is the **local-only version** that runs entirely in your browser with no backend required. All data is stored locally using localStorage.
+PantryPal AI is a modern cooking application that helps you transform your pantry ingredients into delicious meals. Version 2.0 adds **Firebase Authentication** and **Firestore cloud sync**, allowing you to create an account, sign in, and access your recipes from any device.
 
 ### Key Features
 
+- 🔐 **User Authentication** - Sign up with email/password or Google account
+- ☁️ **Cloud Sync** - Your recipes sync across all devices via Firestore
 - 🍳 **AI-assisted recipe ideas** - Generate custom recipes based on your ingredients and preferences
 - 📸 **Pantry vision** - Upload photos of your pantry to detect ingredients (placeholder functionality)
-- 💾 **Personal recipe library** - Save and manage your favorite recipes locally on your device
+- 💾 **Personal recipe library** - Save and manage your favorite recipes in the cloud
 - 🎨 **Modern UI** - Beautiful pastel-themed interface with smooth animations
 - 📱 **Responsive design** - Works seamlessly on mobile, tablet, and desktop devices
+- 🔄 **Offline fallback** - Works with localStorage when not signed in
 
 ## Project Structure
 
 ```
 pantrypal-ai/
-├── index.html              # Main HTML structure with hero section and three-column layout
-├── styles.css              # All styling with pastel aesthetic and responsive design
-├── app.js                  # Main controller - orchestrates all functionality
-├── ui.js                   # DOM manipulation and UI updates
+├── index.html              # Main HTML structure with auth modal and Firebase SDK
+├── styles.css              # Styling with pastel aesthetic, responsive design, and auth UI
+├── app.js                  # Main controller with Firebase authentication orchestration
+├── ui.js                   # DOM manipulation, UI updates, and auth UI rendering
 ├── recipes.js              # Mock recipe generation logic
-├── storage.js              # localStorage management
+├── storage.js              # Firestore and localStorage management with cloud sync
+├── firebase-config.js      # Firebase initialization and configuration
+├── auth.js                 # Authentication logic (sign in/up/out, Google OAuth)
 ├── pantry-vision.js        # Image upload and placeholder ingredient detection
 ├── assets/
 │   ├── logo.svg           # PantryPal AI logo
@@ -147,7 +154,25 @@ Image upload handling with:
 1. All saved recipes appear in the "Your saved recipes" column
 2. Click any recipe to expand and view full details
 3. Click "Remove" to delete a recipe from your library
-4. All recipes are stored in your browser's localStorage
+4. Signed-in users: Recipes sync to Firestore (accessible from any device)
+5. Not signed in: Recipes save to localStorage (device-only)
+
+### Authentication
+
+1. Click "Sign In" in the header
+2. Choose to sign in, sign up, or use Google
+3. After authentication, your recipes automatically sync to the cloud
+4. Sign out anytime from the header
+
+## Firebase Setup
+
+**Important**: To use authentication and cloud sync, you must enable these services in Firebase Console.
+
+See **[FIREBASE_SETUP.md](FIREBASE_SETUP.md)** for detailed instructions on:
+- Enabling Email/Password authentication
+- Enabling Google sign-in
+- Creating Firestore database
+- Setting up security rules
 
 ## Browser Compatibility
 
@@ -157,15 +182,21 @@ PantryPal AI works in all modern browsers:
 - ✅ Safari
 - ✅ Opera
 
-Requires JavaScript enabled and localStorage support.
+Requires JavaScript enabled. Cloud features require Firebase authentication.
 
 ## Data Storage
 
-All data is stored locally in your browser using localStorage under the key `pantry-recipes`. Your data:
-- Never leaves your device
-- Persists between sessions
-- Is tied to your browser and domain
-- Can be cleared via browser settings
+**Version 2.0** uses a hybrid storage approach:
+
+**When Signed In**:
+- Recipes stored in Firestore (Firebase cloud database)
+- Synced across all devices where you sign in
+- Persistent and secure with user-specific access rules
+
+**When Not Signed In**:
+- Recipes stored in browser localStorage
+- Device-only (not synced)
+- Persists until browser data is cleared
 
 ## Keyboard Shortcuts
 
@@ -174,22 +205,36 @@ All data is stored locally in your browser using localStorage under the key `pan
 
 ## Current Limitations
 
-This is version 1.0 - a local-only prototype with the following limitations:
+This is version 2.0 with the following limitations:
 
-- ❌ No real AI/ML - uses mock recipe generation
-- ❌ No real image recognition - returns placeholder ingredients
-- ❌ No cloud sync - data is browser-local only
-- ❌ No user authentication
-- ❌ No recipe sharing
-- ❌ Limited recipe templates
+- ❌ No real AI/ML - uses mock recipe generation (planned for v3.0)
+- ❌ No real image recognition - returns placeholder ingredients (planned for v3.0)
+- ❌ No recipe sharing between users (planned for v2.1)
+- ❌ Limited recipe templates (will expand over time)
+
+## Version History
+
+### Version 2.0 - Cloud Integration ✅ **CURRENT**
+- ✅ Firebase Authentication for user accounts
+- ✅ Firestore database for cloud recipe storage
+- ✅ Real-time sync across devices
+- ✅ Email/Password and Google sign-in
+- ✅ User-specific recipe collections
+- ✅ Graceful localStorage fallback
+
+### Version 1.0 - Local Prototype
+- ✅ Mock recipe generation
+- ✅ Pantry vision placeholder
+- ✅ localStorage-based recipe library
+- ✅ Pastel UI design
 
 ## Planned Features (Future Versions)
 
-### Version 2.0 - Cloud Integration
-- 🔐 Firebase Authentication for user accounts
-- ☁️ Firestore database for cloud recipe storage
-- 🔄 Real-time sync across devices
+### Version 2.1 - Social Features
 - 👥 Recipe sharing with friends and family
+- 💬 Comments and ratings on recipes
+- 📤 Export recipes as PDF
+- 🔖 Public recipe collections
 
 ### Version 3.0 - AI-Powered
 - 🤖 Integration with OpenAI/Anthropic for real recipe generation
@@ -207,8 +252,10 @@ This is version 1.0 - a local-only prototype with the following limitations:
 ## Development
 
 ### Tech Stack
-- **Frontend**: HTML5, CSS3, Vanilla JavaScript
-- **Storage**: Browser localStorage
+- **Frontend**: HTML5, CSS3, Vanilla JavaScript (ES6+)
+- **Backend**: Firebase (Authentication, Firestore, Analytics)
+- **Storage**: Firestore + localStorage (hybrid approach)
+- **Deployment**: Vercel
 - **Icons**: Inline SVG
 - **Styling**: CSS Grid, Flexbox, Custom Properties
 
@@ -218,16 +265,30 @@ This is version 1.0 - a local-only prototype with the following limitations:
 - Event delegation for dynamic content
 - Async/await for asynchronous operations
 - Comprehensive error handling
+- Firebase compat SDK for simpler integration
 
 ### Contributing
-This is currently a prototype project. Future versions will include contribution guidelines.
+This is currently a personal project. Future versions may include contribution guidelines.
 
 ## Troubleshooting
 
+**Authentication not working?**
+- Verify Email/Password auth is enabled in Firebase Console
+- Check Google sign-in is configured (if using Google)
+- See [FIREBASE_SETUP.md](FIREBASE_SETUP.md) for setup instructions
+- Check browser console for Firebase errors
+
 **Recipes not saving?**
-- Check that localStorage is enabled in your browser
+- Make sure you're signed in (header shows your name)
+- Verify Firestore database is created in Firebase Console
+- Check Firestore security rules allow writes
 - Check browser console for errors
-- Try clearing localStorage and reloading
+
+**Recipes not syncing across devices?**
+- Sign in with the same account on both devices
+- Wait a few seconds for Firestore sync
+- Check internet connection
+- Verify Firestore rules are correctly configured
 
 **Image upload not working?**
 - Ensure you're uploading a valid image file (JPG, PNG, etc.)
@@ -242,14 +303,16 @@ This is currently a prototype project. Future versions will include contribution
 
 ## License
 
-© 2025 PantryPal AI - Local-only version v1.0
+© 2025 PantryPal AI - Version 2.0 with Cloud Sync
 
 ## Support
 
-For issues, feature requests, or questions about future versions, please check back for updates.
+- **Issues**: https://github.com/pat7536/pantrypal-ai/issues
+- **Live Demo**: https://pantrypal-ai-delta.vercel.app
+- **Setup Guide**: [FIREBASE_SETUP.md](FIREBASE_SETUP.md)
 
 ---
 
-**Note**: This is a local-only prototype. Firebase integration, real AI-powered recipe generation, and actual machine learning for pantry vision will be added in future versions.
+**Built with Firebase** 🔥 | **Deployed on Vercel** ▲
 
 Enjoy discovering dinner in seconds! 🍳
