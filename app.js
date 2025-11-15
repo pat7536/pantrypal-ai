@@ -135,14 +135,17 @@ function setupEventListeners() {
 async function handleRecipeGeneration(e) {
     e.preventDefault();
 
+    const prompt = document.getElementById('recipe-prompt').value.trim();
     const ingredients = document.getElementById('ingredients').value.trim();
 
-    if (!ingredients) {
-        UI.showNotification('Please enter some ingredients', 'error');
+    // Validate that either prompt or ingredients is provided
+    if (!prompt && !ingredients) {
+        UI.showNotification('Please enter a recipe prompt or ingredients', 'error');
         return;
     }
 
     const params = {
+        prompt: prompt,
         ingredients: ingredients,
         dietaryPreference: document.getElementById('dietary-preference').value,
         mealType: document.getElementById('meal-type').value,
@@ -150,21 +153,32 @@ async function handleRecipeGeneration(e) {
         moodVibe: document.getElementById('mood-vibe').value
     };
 
-    // Generate recipes
-    const recipes = generateRecipes(params);
+    // Show loading state
+    const submitBtn = e.target.querySelector('button[type="submit"]');
+    UI.showButtonLoading(submitBtn, 'Generating...');
 
-    if (recipes.length === 0) {
-        UI.showNotification('Could not generate recipes. Please try again.', 'error');
-        return;
+    try {
+        // Generate recipes (this is now async)
+        const recipes = await generateRecipes(params);
+
+        if (!recipes || recipes.length === 0) {
+            UI.showNotification('Could not generate recipes. Please try again.', 'error');
+            return;
+        }
+
+        // Store in app state
+        AppState.currentGeneratedRecipes = recipes;
+
+        // Display generated recipes
+        UI.displayGeneratedRecipes(recipes);
+
+        UI.showNotification(`Generated ${recipes.length} recipe${recipes.length > 1 ? 's' : ''}!`, 'success');
+    } catch (error) {
+        console.error('Error generating recipes:', error);
+        UI.showNotification('Error generating recipes. Please try again.', 'error');
+    } finally {
+        UI.hideButtonLoading(submitBtn);
     }
-
-    // Store in app state
-    AppState.currentGeneratedRecipes = recipes;
-
-    // Display generated recipes
-    UI.displayGeneratedRecipes(recipes);
-
-    UI.showNotification(`Generated ${recipes.length} recipe${recipes.length > 1 ? 's' : ''}!`, 'success');
 }
 
 /**

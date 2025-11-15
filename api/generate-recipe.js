@@ -10,15 +10,16 @@ export default async function handler(req, res) {
     }
 
     try {
-        const { ingredients, dietaryPreference, mealType, cuisineFocus, moodVibe } = req.body;
+        const { prompt: userPrompt, ingredients, dietaryPreference, mealType, cuisineFocus, moodVibe } = req.body;
 
-        // Validate input
-        if (!ingredients || ingredients.trim().length === 0) {
-            return res.status(400).json({ error: 'Ingredients are required' });
+        // Validate input - either prompt or ingredients must be provided
+        if ((!userPrompt || userPrompt.trim().length === 0) && (!ingredients || ingredients.trim().length === 0)) {
+            return res.status(400).json({ error: 'Either a recipe prompt or ingredients are required' });
         }
 
         // Construct the prompt for OpenAI
         const prompt = buildRecipePrompt({
+            userPrompt,
             ingredients,
             dietaryPreference,
             mealType,
@@ -96,16 +97,44 @@ export default async function handler(req, res) {
 /**
  * Build a detailed prompt for recipe generation
  */
-function buildRecipePrompt({ ingredients, dietaryPreference, mealType, cuisineFocus, moodVibe }) {
-    let prompt = `Generate 2-3 creative and delicious recipes using these ingredients: ${ingredients}.
+function buildRecipePrompt({ userPrompt, ingredients, dietaryPreference, mealType, cuisineFocus, moodVibe }) {
+    let prompt = '';
 
-Requirements:
-- Meal type: ${mealType || 'any'}
-- Cuisine style: ${cuisineFocus || 'any'}
-- Dietary preference: ${dietaryPreference || 'none'}
-- Mood/vibe: ${moodVibe || 'any'}
+    // If user provided a natural language prompt, use it as the primary request
+    if (userPrompt && userPrompt.trim().length > 0) {
+        prompt = `User request: ${userPrompt}
 
-For each recipe, provide:
+`;
+
+        // Add ingredients as supplementary info if provided
+        if (ingredients && ingredients.trim().length > 0) {
+            prompt += `Available ingredients: ${ingredients}
+
+`;
+        }
+    } else {
+        // Fallback to structured ingredient-based prompt
+        prompt = `Generate 2-3 creative and delicious recipes using these ingredients: ${ingredients}.
+
+`;
+    }
+
+    // Add additional preferences if specified
+    const preferences = [];
+    if (mealType && mealType !== 'any') preferences.push(`Meal type: ${mealType}`);
+    if (cuisineFocus && cuisineFocus !== 'any') preferences.push(`Cuisine style: ${cuisineFocus}`);
+    if (dietaryPreference && dietaryPreference !== 'none') preferences.push(`Dietary preference: ${dietaryPreference}`);
+    if (moodVibe && moodVibe !== 'any') preferences.push(`Mood/vibe: ${moodVibe}`);
+
+    if (preferences.length > 0) {
+        prompt += `Additional preferences:
+${preferences.map(p => `- ${p}`).join('\n')}
+
+`;
+    }
+
+    // Add standard instructions
+    prompt += `For each recipe, provide:
 1. A creative and appetizing title
 2. Complete list of ingredients with measurements
 3. Step-by-step cooking instructions

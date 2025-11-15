@@ -67,17 +67,32 @@
                 <div class="card">
                     <div class="card-header">
                         <h2>Generate a recipe</h2>
-                        <p>Enter your ingredients and preferences</p>
+                        <p>Describe what you want or list your ingredients</p>
                     </div>
                     <div class="card-body">
                         <form id="recipe-form">
                             <div class="form-group">
-                                <label for="ingredients">Ingredients</label>
+                                <label for="recipe-prompt">What do you want to cook? 💬</label>
+                                <textarea
+                                    id="recipe-prompt"
+                                    placeholder="e.g., Give me a recipe for crispy parmesan chicken... or I want something cozy and Italian for dinner... or Surprise me with a healthy breakfast!"
+                                    rows="3"
+                                ></textarea>
+                                <small class="form-hint">Describe your dish, cooking style, or let AI surprise you!</small>
+                            </div>
+
+                            <div class="form-divider">
+                                <span>OR specify details below</span>
+                            </div>
+
+                            <div class="form-group">
+                                <label for="ingredients">Ingredients (optional)</label>
                                 <textarea
                                     id="ingredients"
                                     placeholder="e.g., chicken, tomatoes, garlic, olive oil..."
-                                    rows="4"
+                                    rows="3"
                                 ></textarea>
+                                <small class="form-hint">List what you have on hand</small>
                             </div>
 
                             <div class="form-group">
