@@ -1,31 +1,48 @@
 /**
  * storage.js
- * Handles localStorage operations for PantryPal AI
+ * Handles localStorage operations and Firestore sync for PantryPal AI
+ * Version 2.0 - Cloud-enabled with Firebase Firestore
  */
 
 const STORAGE_KEY = 'pantry-recipes';
+const USE_FIRESTORE = true; // Toggle between localStorage and Firestore
 
 /**
- * Save a recipe to localStorage
+ * Save a recipe to localStorage or Firestore
  * @param {Object} recipe - Recipe object containing id, title, ingredients, steps, etc.
- * @returns {boolean} - Success status
+ * @returns {Promise<boolean>} - Success status
  */
-function saveRecipe(recipe) {
+async function saveRecipe(recipe) {
     try {
-        const recipes = loadRecipes();
+        // Add userId and timestamp
+        const user = getCurrentUser();
+        const enrichedRecipe = {
+            ...recipe,
+            userId: user ? user.uid : 'local',
+            updatedAt: new Date().toISOString()
+        };
 
-        // Check if recipe with this ID already exists
-        const existingIndex = recipes.findIndex(r => r.id === recipe.id);
-
-        if (existingIndex !== -1) {
-            // Update existing recipe
-            recipes[existingIndex] = recipe;
+        if (USE_FIRESTORE && user) {
+            // Save to Firestore
+            await saveRecipeToFirestore(enrichedRecipe);
         } else {
-            // Add new recipe
-            recipes.push(recipe);
+            // Fallback to localStorage
+            const recipes = await loadRecipes();
+
+            // Check if recipe with this ID already exists
+            const existingIndex = recipes.findIndex(r => r.id === recipe.id);
+
+            if (existingIndex !== -1) {
+                // Update existing recipe
+                recipes[existingIndex] = enrichedRecipe;
+            } else {
+                // Add new recipe
+                recipes.push(enrichedRecipe);
+            }
+
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(recipes));
         }
 
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(recipes));
         return true;
     } catch (error) {
         console.error('Error saving recipe:', error);
@@ -34,18 +51,42 @@ function saveRecipe(recipe) {
 }
 
 /**
- * Load all recipes from localStorage
- * @returns {Array} - Array of recipe objects
+ * Save recipe to Firestore
+ * @param {Object} recipe - Recipe object
+ * @returns {Promise<void>}
  */
-function loadRecipes() {
+async function saveRecipeToFirestore(recipe) {
+    const user = getCurrentUser();
+    if (!user) {
+        throw new Error('User must be authenticated to save to Firestore');
+    }
+
+    const recipeRef = db.collection('users').doc(user.uid).collection('recipes').doc(recipe.id);
+    await recipeRef.set(recipe, { merge: true });
+    console.log('Recipe saved to Firestore:', recipe.id);
+}
+
+/**
+ * Load all recipes from localStorage or Firestore
+ * @returns {Promise<Array>} - Array of recipe objects
+ */
+async function loadRecipes() {
     try {
-        const recipesJson = localStorage.getItem(STORAGE_KEY);
+        const user = getCurrentUser();
 
-        if (!recipesJson) {
-            return [];
+        if (USE_FIRESTORE && user) {
+            // Load from Firestore
+            return await loadRecipesFromFirestore();
+        } else {
+            // Fallback to localStorage
+            const recipesJson = localStorage.getItem(STORAGE_KEY);
+
+            if (!recipesJson) {
+                return [];
+            }
+
+            return JSON.parse(recipesJson);
         }
-
-        return JSON.parse(recipesJson);
     } catch (error) {
         console.error('Error loading recipes:', error);
         return [];
@@ -53,16 +94,47 @@ function loadRecipes() {
 }
 
 /**
- * Delete a recipe from localStorage by ID
- * @param {string} id - Recipe ID
- * @returns {boolean} - Success status
+ * Load recipes from Firestore
+ * @returns {Promise<Array>} - Array of recipe objects
  */
-function deleteRecipe(id) {
-    try {
-        const recipes = loadRecipes();
-        const filteredRecipes = recipes.filter(recipe => recipe.id !== id);
+async function loadRecipesFromFirestore() {
+    const user = getCurrentUser();
+    if (!user) {
+        return [];
+    }
 
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(filteredRecipes));
+    const recipesRef = db.collection('users').doc(user.uid).collection('recipes');
+    const snapshot = await recipesRef.orderBy('updatedAt', 'desc').get();
+
+    const recipes = [];
+    snapshot.forEach((doc) => {
+        recipes.push(doc.data());
+    });
+
+    console.log(`Loaded ${recipes.length} recipes from Firestore`);
+    return recipes;
+}
+
+/**
+ * Delete a recipe from localStorage or Firestore by ID
+ * @param {string} id - Recipe ID
+ * @returns {Promise<boolean>} - Success status
+ */
+async function deleteRecipe(id) {
+    try {
+        const user = getCurrentUser();
+
+        if (USE_FIRESTORE && user) {
+            // Delete from Firestore
+            await deleteRecipeFromFirestore(id);
+        } else {
+            // Fallback to localStorage
+            const recipes = await loadRecipes();
+            const filteredRecipes = recipes.filter(recipe => recipe.id !== id);
+
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(filteredRecipes));
+        }
+
         return true;
     } catch (error) {
         console.error('Error deleting recipe:', error);
@@ -71,12 +143,28 @@ function deleteRecipe(id) {
 }
 
 /**
+ * Delete recipe from Firestore
+ * @param {string} id - Recipe ID
+ * @returns {Promise<void>}
+ */
+async function deleteRecipeFromFirestore(id) {
+    const user = getCurrentUser();
+    if (!user) {
+        throw new Error('User must be authenticated to delete from Firestore');
+    }
+
+    const recipeRef = db.collection('users').doc(user.uid).collection('recipes').doc(id);
+    await recipeRef.delete();
+    console.log('Recipe deleted from Firestore:', id);
+}
+
+/**
  * Get a single recipe by ID
  * @param {string} id - Recipe ID
- * @returns {Object|null} - Recipe object or null if not found
+ * @returns {Promise<Object|null>} - Recipe object or null if not found
  */
-function getRecipeById(id) {
-    const recipes = loadRecipes();
+async function getRecipeById(id) {
+    const recipes = await loadRecipes();
     return recipes.find(recipe => recipe.id === id) || null;
 }
 

@@ -1,6 +1,7 @@
 /**
  * app.js
  * Main controller for PantryPal AI
+ * Version 2.0 - Cloud-enabled with Firebase
  * Orchestrates all app functionality and event handling
  */
 
@@ -8,22 +9,55 @@
 const AppState = {
     currentGeneratedRecipes: [],
     currentUploadedImage: null,
-    currentDetectedIngredients: []
+    currentDetectedIngredients: [],
+    currentUser: null
 };
 
 /**
  * Initialize the application
  */
 function initApp() {
-    console.log('PantryPal AI v1.0 - Initializing...');
+    console.log('PantryPal AI v2.0 - Initializing with Firebase...');
 
-    // Load and display saved recipes on startup
-    UI.displaySavedRecipes();
+    // Initialize Firebase
+    const firebaseInitialized = initializeFirebase();
+
+    if (!firebaseInitialized) {
+        console.error('Firebase initialization failed');
+        return;
+    }
+
+    // Setup authentication state listener
+    setupAuthStateListener();
 
     // Setup event listeners
     setupEventListeners();
 
     console.log('PantryPal AI ready!');
+}
+
+/**
+ * Setup authentication state listener
+ */
+function setupAuthStateListener() {
+    onAuthStateChanged((user) => {
+        AppState.currentUser = user;
+
+        // Update UI based on auth state
+        UI.renderAuthStatus(user);
+
+        if (user) {
+            console.log('User signed in:', user.email);
+
+            // Load user's recipes from Firestore
+            UI.displaySavedRecipes();
+        } else {
+            console.log('User signed out');
+
+            // Clear saved recipes display (will show empty state)
+            UI.displaySavedRecipes();
+        }
+    });
 }
 
 /**
@@ -48,6 +82,47 @@ function setupEventListeners() {
     // Scan pantry button
     const scanButton = document.getElementById('scan-pantry-btn');
     scanButton.addEventListener('click', handlePantryScan);
+
+    // Auth modal events
+    const modalClose = document.querySelector('.modal-close');
+    modalClose.addEventListener('click', () => UI.hideAuthModal());
+
+    // Auth form submissions
+    document.getElementById('signin-form').addEventListener('submit', handleSignIn);
+    document.getElementById('signup-form').addEventListener('submit', handleSignUp);
+    document.getElementById('reset-form').addEventListener('submit', handlePasswordReset);
+
+    // Auth form switchers
+    document.getElementById('show-signup').addEventListener('click', (e) => {
+        e.preventDefault();
+        UI.switchAuthForm('signup');
+    });
+
+    document.getElementById('show-signin').addEventListener('click', (e) => {
+        e.preventDefault();
+        UI.switchAuthForm('signin');
+    });
+
+    document.getElementById('show-reset').addEventListener('click', (e) => {
+        e.preventDefault();
+        UI.switchAuthForm('reset');
+    });
+
+    document.getElementById('back-to-signin').addEventListener('click', (e) => {
+        e.preventDefault();
+        UI.switchAuthForm('signin');
+    });
+
+    // Google sign-in button
+    document.getElementById('google-signin-btn').addEventListener('click', handleGoogleSignIn);
+
+    // Click outside modal to close
+    window.addEventListener('click', (e) => {
+        const modal = document.getElementById('auth-modal');
+        if (e.target === modal) {
+            UI.hideAuthModal();
+        }
+    });
 
     // Event delegation for dynamically created elements
     document.addEventListener('click', handleDocumentClick);
@@ -204,6 +279,17 @@ async function handlePantryScan() {
 function handleDocumentClick(e) {
     const target = e.target;
 
+    // Sign in button
+    if (target.id === 'signin-btn') {
+        UI.showAuthModal();
+        UI.switchAuthForm('signin');
+    }
+
+    // Sign out button
+    if (target.id === 'signout-btn') {
+        handleSignOut();
+    }
+
     // Save recipe button
     if (target.classList.contains('save-recipe-btn')) {
         const recipeId = target.dataset.recipeId;
@@ -234,7 +320,7 @@ function handleDocumentClick(e) {
  * Handle saving a recipe
  * @param {string} recipeId - Recipe ID
  */
-function handleSaveRecipe(recipeId) {
+async function handleSaveRecipe(recipeId) {
     // Find recipe in current generated recipes
     const recipe = AppState.currentGeneratedRecipes.find(r => r.id === recipeId);
 
@@ -243,14 +329,14 @@ function handleSaveRecipe(recipeId) {
         return;
     }
 
-    // Save to localStorage
-    const success = saveRecipe(recipe);
+    // Save to Firestore or localStorage
+    const success = await saveRecipe(recipe);
 
     if (success) {
         UI.showNotification(`"${recipe.title}" saved to library!`, 'success');
 
         // Refresh saved recipes display
-        UI.displaySavedRecipes();
+        await UI.displaySavedRecipes();
     } else {
         UI.showNotification('Error saving recipe', 'error');
     }
@@ -260,9 +346,9 @@ function handleSaveRecipe(recipeId) {
  * Handle deleting a recipe
  * @param {string} recipeId - Recipe ID
  */
-function handleDeleteRecipe(recipeId) {
+async function handleDeleteRecipe(recipeId) {
     // Get recipe details for notification
-    const recipe = getRecipeById(recipeId);
+    const recipe = await getRecipeById(recipeId);
 
     if (!recipe) {
         UI.showNotification('Recipe not found', 'error');
@@ -276,14 +362,14 @@ function handleDeleteRecipe(recipeId) {
         return;
     }
 
-    // Delete from localStorage
-    const success = deleteRecipe(recipeId);
+    // Delete from Firestore or localStorage
+    const success = await deleteRecipe(recipeId);
 
     if (success) {
         UI.showNotification(`"${recipe.title}" removed from library`, 'success');
 
         // Refresh saved recipes display
-        UI.displaySavedRecipes();
+        await UI.displaySavedRecipes();
     } else {
         UI.showNotification('Error deleting recipe', 'error');
     }
@@ -298,6 +384,108 @@ function handleUseIngredients(ingredientsString) {
     UI.populateIngredientsField(ingredientsString);
 
     UI.showNotification('Ingredients added to form', 'success');
+}
+
+/**
+ * Handle sign in form submission
+ * @param {Event} e - Form submit event
+ */
+async function handleSignIn(e) {
+    e.preventDefault();
+
+    const email = document.getElementById('signin-email').value;
+    const password = document.getElementById('signin-password').value;
+
+    const submitBtn = e.target.querySelector('button[type="submit"]');
+    UI.showButtonLoading(submitBtn, 'Signing in...');
+
+    try {
+        await signInUser(email, password);
+        UI.hideAuthModal();
+        UI.showNotification('Signed in successfully!', 'success');
+    } catch (error) {
+        console.error('Sign in error:', error);
+        UI.showNotification(getAuthErrorMessage(error.code), 'error');
+    } finally {
+        UI.hideButtonLoading(submitBtn);
+    }
+}
+
+/**
+ * Handle sign up form submission
+ * @param {Event} e - Form submit event
+ */
+async function handleSignUp(e) {
+    e.preventDefault();
+
+    const name = document.getElementById('signup-name').value;
+    const email = document.getElementById('signup-email').value;
+    const password = document.getElementById('signup-password').value;
+
+    const submitBtn = e.target.querySelector('button[type="submit"]');
+    UI.showButtonLoading(submitBtn, 'Creating account...');
+
+    try {
+        await signUpUser(email, password, name);
+        UI.hideAuthModal();
+        UI.showNotification('Account created successfully!', 'success');
+    } catch (error) {
+        console.error('Sign up error:', error);
+        UI.showNotification(getAuthErrorMessage(error.code), 'error');
+    } finally {
+        UI.hideButtonLoading(submitBtn);
+    }
+}
+
+/**
+ * Handle password reset form submission
+ * @param {Event} e - Form submit event
+ */
+async function handlePasswordReset(e) {
+    e.preventDefault();
+
+    const email = document.getElementById('reset-email').value;
+
+    const submitBtn = e.target.querySelector('button[type="submit"]');
+    UI.showButtonLoading(submitBtn, 'Sending...');
+
+    try {
+        await resetPassword(email);
+        UI.showNotification('Password reset email sent! Check your inbox.', 'success');
+        UI.switchAuthForm('signin');
+    } catch (error) {
+        console.error('Password reset error:', error);
+        UI.showNotification(getAuthErrorMessage(error.code), 'error');
+    } finally {
+        UI.hideButtonLoading(submitBtn);
+    }
+}
+
+/**
+ * Handle Google sign in
+ */
+async function handleGoogleSignIn() {
+    try {
+        await signInWithGoogle();
+        UI.hideAuthModal();
+        UI.showNotification('Signed in with Google!', 'success');
+    } catch (error) {
+        console.error('Google sign in error:', error);
+        UI.showNotification(getAuthErrorMessage(error.code), 'error');
+    }
+}
+
+/**
+ * Handle sign out
+ */
+async function handleSignOut() {
+    try {
+        await signOutUser();
+        UI.showNotification('Signed out successfully', 'success');
+    } catch (error) {
+        console.error('Sign out error:', error);
+        UI.showNotification('Error signing out', 'error');
+    }
 }
 
 /**

@@ -40,11 +40,11 @@ const UI = {
     },
 
     /**
-     * Display saved recipes from localStorage
+     * Display saved recipes from localStorage or Firestore
      */
-    displaySavedRecipes() {
+    async displaySavedRecipes() {
         const container = document.getElementById('saved-recipes');
-        const recipes = loadRecipes();
+        const recipes = await loadRecipes();
 
         if (recipes.length === 0) {
             container.innerHTML = `
@@ -280,6 +280,78 @@ const UI = {
     disableScanButton() {
         const scanButton = document.getElementById('scan-pantry-btn');
         scanButton.disabled = true;
+    },
+
+    /**
+     * Render authentication status in header
+     * @param {firebase.User|null} user - Current user or null
+     */
+    renderAuthStatus(user) {
+        const container = document.getElementById('auth-status');
+
+        if (user) {
+            // User is signed in
+            const displayName = user.displayName || user.email.split('@')[0];
+            container.innerHTML = `
+                <div class="user-info">
+                    <span class="user-name">👋 ${displayName}</span>
+                    <button id="signout-btn" class="btn btn-small">Sign Out</button>
+                </div>
+            `;
+        } else {
+            // User is not signed in
+            container.innerHTML = `
+                <button id="signin-btn" class="btn btn-small btn-primary">Sign In</button>
+            `;
+        }
+    },
+
+    /**
+     * Show authentication modal
+     */
+    showAuthModal() {
+        const modal = document.getElementById('auth-modal');
+        modal.style.display = 'flex';
+    },
+
+    /**
+     * Hide authentication modal
+     */
+    hideAuthModal() {
+        const modal = document.getElementById('auth-modal');
+        modal.style.display = 'none';
+        // Reset forms
+        document.getElementById('signin-form').reset();
+        document.getElementById('signup-form').reset();
+        document.getElementById('reset-form').reset();
+    },
+
+    /**
+     * Switch between auth forms (signin, signup, reset)
+     * @param {string} formType - 'signin', 'signup', or 'reset'
+     */
+    switchAuthForm(formType) {
+        const signinForm = document.getElementById('signin-form');
+        const signupForm = document.getElementById('signup-form');
+        const resetForm = document.getElementById('reset-form');
+        const title = document.getElementById('auth-modal-title');
+
+        // Hide all forms
+        signinForm.style.display = 'none';
+        signupForm.style.display = 'none';
+        resetForm.style.display = 'none';
+
+        // Show selected form
+        if (formType === 'signup') {
+            signupForm.style.display = 'block';
+            title.textContent = 'Sign Up';
+        } else if (formType === 'reset') {
+            resetForm.style.display = 'block';
+            title.textContent = 'Reset Password';
+        } else {
+            signinForm.style.display = 'block';
+            title.textContent = 'Sign In';
+        }
     }
 };
 
