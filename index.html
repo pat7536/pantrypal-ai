@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PantryPal AI - Discover dinner in seconds</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <!-- Header -->
+    <header class="header">
+        <div class="container">
+            <div class="logo">
+                <img src="assets/logo.svg" alt="PantryPal AI Logo">
+                <span>PantryPal AI</span>
+            </div>
+        </div>
+    </header>
+
+    <!-- Hero Section -->
+    <section class="hero">
+        <div class="container hero-content">
+            <div class="hero-text">
+                <h1>Discover dinner in seconds</h1>
+                <p>Transform your pantry ingredients into delicious meals with AI-powered recipe suggestions. Scan, save, and cook with confidence.</p>
+
+                <div class="feature-badges">
+                    <span class="badge">
+                        <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                            <path d="M8 2a.5.5 0 0 1 .5.5v5h5a.5.5 0 0 1 0 1h-5v5a.5.5 0 0 1-1 0v-5h-5a.5.5 0 0 1 0-1h5v-5A.5.5 0 0 1 8 2z"/>
+                        </svg>
+                        AI-assisted recipe ideas
+                    </span>
+                    <span class="badge">
+                        <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                            <path d="M2 2a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v13.5a.5.5 0 0 1-.777.416L8 13.101l-5.223 2.815A.5.5 0 0 1 2 15.5V2zm2-1a1 1 0 0 0-1 1v12.566l4.723-2.482a.5.5 0 0 1 .554 0L13 14.566V2a1 1 0 0 0-1-1H4z"/>
+                        </svg>
+                        Pantry vision powered by MobileNet
+                    </span>
+                    <span class="badge">
+                        <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                            <path d="M8 16A8 8 0 1 0 8 0a8 8 0 0 0 0 16zm.5-4.5a.5.5 0 1 1-1 0 .5.5 0 0 1 1 0zM7.5 6a.5.5 0 0 0 0 1h1a.5.5 0 0 0 .5-.5v-2a.5.5 0 0 0-1 0v1.5h-.5z"/>
+                        </svg>
+                        Personal recipe library saved on your device
+                    </span>
+                </div>
+            </div>
+
+            <div class="hero-illustration">
+                <div class="glow-orb orb-1"></div>
+                <div class="glow-orb orb-2"></div>
+                <div class="glow-orb orb-3"></div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Main Content -->
+    <main class="main-content">
+        <div class="container">
+            <div class="three-column-layout">
+                <!-- Column 1: Generate Recipe -->
+                <div class="card">
+                    <div class="card-header">
+                        <h2>Generate a recipe</h2>
+                        <p>Enter your ingredients and preferences</p>
+                    </div>
+                    <div class="card-body">
+                        <form id="recipe-form">
+                            <div class="form-group">
+                                <label for="ingredients">Ingredients</label>
+                                <textarea
+                                    id="ingredients"
+                                    placeholder="e.g., chicken, tomatoes, garlic, olive oil..."
+                                    rows="4"
+                                ></textarea>
+                            </div>
+
+                            <div class="form-group">
+                                <label for="dietary-preference">Dietary Preference</label>
+                                <select id="dietary-preference">
+                                    <option value="none">No preference</option>
+                                    <option value="vegetarian">Vegetarian</option>
+                                    <option value="vegan">Vegan</option>
+                                    <option value="gluten-free">Gluten-free</option>
+                                    <option value="keto">Keto</option>
+                                    <option value="paleo">Paleo</option>
+                                </select>
+                            </div>
+
+                            <div class="form-group">
+                                <label for="meal-type">Meal Type</label>
+                                <select id="meal-type">
+                                    <option value="any">Any</option>
+                                    <option value="breakfast">Breakfast</option>
+                                    <option value="lunch">Lunch</option>
+                                    <option value="dinner">Dinner</option>
+                                    <option value="snack">Snack</option>
+                                    <option value="dessert">Dessert</option>
+                                </select>
+                            </div>
+
+                            <div class="form-group">
+                                <label for="cuisine-focus">Cuisine Focus</label>
+                                <select id="cuisine-focus">
+                                    <option value="any">Any</option>
+                                    <option value="italian">Italian</option>
+                                    <option value="mexican">Mexican</option>
+                                    <option value="asian">Asian</option>
+                                    <option value="mediterranean">Mediterranean</option>
+                                    <option value="american">American</option>
+                                    <option value="indian">Indian</option>
+                                </select>
+                            </div>
+
+                            <div class="form-group">
+                                <label for="mood-vibe">Mood or Vibe</label>
+                                <select id="mood-vibe">
+                                    <option value="any">Any</option>
+                                    <option value="comfort">Comfort food</option>
+                                    <option value="healthy">Healthy & light</option>
+                                    <option value="quick">Quick & easy</option>
+                                    <option value="fancy">Fancy & impressive</option>
+                                    <option value="cozy">Cozy & warming</option>
+                                </select>
+                            </div>
+
+                            <button type="submit" class="btn btn-primary">Generate recipe</button>
+                        </form>
+
+                        <div id="generated-recipes" class="generated-recipes"></div>
+                    </div>
+                </div>
+
+                <!-- Column 2: Scan Pantry -->
+                <div class="card">
+                    <div class="card-header">
+                        <h2>Scan your pantry</h2>
+                        <p>Upload an image to detect ingredients</p>
+                    </div>
+                    <div class="card-body">
+                        <div
+                            id="drop-zone"
+                            class="drop-zone"
+                        >
+                            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                                <polyline points="17 8 12 3 7 8"></polyline>
+                                <line x1="12" y1="3" x2="12" y2="15"></line>
+                            </svg>
+                            <p class="drop-zone-text">Drag & drop an image here</p>
+                            <p class="drop-zone-subtext">or click to select</p>
+                            <input
+                                type="file"
+                                id="pantry-image-input"
+                                accept="image/*"
+                                hidden
+                            >
+                        </div>
+
+                        <div id="image-preview" class="image-preview" style="display: none;">
+                            <img id="preview-img" src="" alt="Pantry preview">
+                        </div>
+
+                        <button id="scan-pantry-btn" class="btn btn-secondary" disabled>Scan pantry</button>
+
+                        <div id="detected-ingredients" class="detected-ingredients"></div>
+                    </div>
+                </div>
+
+                <!-- Column 3: Saved Recipes -->
+                <div class="card">
+                    <div class="card-header">
+                        <h2>Your saved recipes</h2>
+                        <p>Your personal recipe collection</p>
+                    </div>
+                    <div class="card-body">
+                        <div id="saved-recipes" class="saved-recipes">
+                            <div class="empty-state">
+                                <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                                    <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"></path>
+                                </svg>
+                                <p>No saved recipes yet</p>
+                                <p class="empty-state-subtext">Generate and save recipes to see them here</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2025 PantryPal AI - Local-only version v1.0</p>
+        </div>
+    </footer>
+
+    <!-- Scripts -->
+    <script src="storage.js"></script>
+    <script src="recipes.js"></script>
+    <script src="pantry-vision.js"></script>
+    <script src="ui.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>
