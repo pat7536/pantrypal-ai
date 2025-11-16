@@ -557,6 +557,223 @@ const UI = {
         if (modal) {
             modal.style.display = 'none';
         }
+    },
+
+    // ==================== MEAL PLANNER UI ====================
+
+    /**
+     * Render the meal planner grid
+     * @param {Object} plannerData - Planner data with meals
+     * @param {Array} recipes - All saved recipes for lookup
+     */
+    renderPlannerGrid(plannerData, recipes) {
+        const grid = document.getElementById('planner-grid');
+        const weekDates = getCurrentWeekDates();
+
+        let html = '';
+
+        weekDates.forEach(day => {
+            const mealData = plannerData.meals[day.dateString];
+            const recipeId = mealData ? mealData.dinner : null;
+            const recipe = recipeId ? recipes.find(r => r.id === recipeId) : null;
+
+            html += `
+                <div class="planner-day" data-date="${day.dateString}">
+                    <div class="planner-day-header">
+                        <span class="planner-day-name">${day.dayShort}</span>
+                        <span class="planner-day-date">${day.month} ${day.dayNumber}</span>
+                    </div>
+                    <div class="planner-day-content">
+                        ${recipe ? `
+                            <div class="planner-meal">
+                                <button class="planner-meal-remove" data-date="${day.dateString}">&times;</button>
+                                <div class="planner-meal-title">${recipe.title}</div>
+                            </div>
+                        ` : `
+                            <button class="planner-add-btn" data-date="${day.dateString}">+ Add Recipe</button>
+                        `}
+                    </div>
+                </div>
+            `;
+        });
+
+        grid.innerHTML = html;
+
+        // Update week range display
+        document.getElementById('planner-week-range').textContent = getWeekRangeString();
+
+        // Enable/disable generate grocery button
+        const generateBtn = document.getElementById('generate-grocery-btn');
+        generateBtn.disabled = !hasMealsPlanned(plannerData);
+    },
+
+    /**
+     * Show recipe selection modal for planner
+     * @param {Array} recipes - Array of saved recipes
+     * @param {string} dateString - Date being planned
+     */
+    showRecipeSelectionModal(recipes, dateString) {
+        const modal = document.getElementById('recipe-selection-modal');
+        const list = document.getElementById('recipe-selection-list');
+        const dateLabel = document.getElementById('recipe-selection-date');
+
+        // Format date for display
+        const date = new Date(dateString + 'T00:00:00');
+        const options = { weekday: 'long', month: 'long', day: 'numeric' };
+        dateLabel.textContent = `Choose a recipe for ${date.toLocaleDateString('en-US', options)}`;
+
+        if (recipes.length === 0) {
+            list.innerHTML = `
+                <div class="recipe-selection-empty">
+                    <p>No saved recipes yet</p>
+                    <p>Save some recipes first to add them to your meal plan</p>
+                </div>
+            `;
+        } else {
+            list.innerHTML = recipes.map(recipe => `
+                <div class="recipe-selection-item" data-recipe-id="${recipe.id}" data-date="${dateString}">
+                    <h4>${recipe.title}</h4>
+                    <p>${recipe.cuisineFocus || 'Fusion'} • ${recipe.mealType || 'Dinner'} • ${recipe.ingredients.length} ingredients</p>
+                </div>
+            `).join('');
+        }
+
+        modal.style.display = 'flex';
+    },
+
+    /**
+     * Hide recipe selection modal
+     */
+    hideRecipeSelectionModal() {
+        const modal = document.getElementById('recipe-selection-modal');
+        modal.style.display = 'none';
+    },
+
+    // ==================== GROCERY LIST UI ====================
+
+    /**
+     * Render the grocery list
+     * @param {Object} groceryData - Grocery list data
+     * @param {Array} recipes - All recipes for summary
+     */
+    renderGroceryList(groceryData, recipes) {
+        const container = document.getElementById('grocery-list-container');
+        const progressSection = document.getElementById('grocery-progress');
+        const actionsSection = document.getElementById('grocery-actions');
+        const summarySection = document.getElementById('planned-recipes-summary');
+
+        if (!groceryData || groceryData.items.length === 0) {
+            container.innerHTML = `
+                <div class="empty-state">
+                    <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                        <path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path>
+                    </svg>
+                    <p>No grocery list yet</p>
+                    <p class="empty-state-subtext">Plan your meals first, then generate your list</p>
+                </div>
+            `;
+            progressSection.style.display = 'none';
+            actionsSection.style.display = 'none';
+            summarySection.innerHTML = '';
+            return;
+        }
+
+        // Render planned recipes summary
+        const plannedRecipes = (groceryData.plannedRecipeIds || [])
+            .map(id => recipes.find(r => r.id === id))
+            .filter(r => r);
+
+        if (plannedRecipes.length > 0) {
+            summarySection.innerHTML = `
+                <h4>Planned Recipes (${plannedRecipes.length}):</h4>
+                <div class="planned-recipe-tags">
+                    ${plannedRecipes.map(r => `<span class="planned-recipe-tag">${r.title}</span>`).join('')}
+                </div>
+            `;
+        }
+
+        // Render progress bar
+        const progress = calculateProgress(groceryData.items);
+        progressSection.style.display = 'block';
+        document.getElementById('progress-fill').style.width = `${progress.percentage}%`;
+        document.getElementById('progress-text').textContent = `${progress.checked} of ${progress.total} items (${progress.percentage}%)`;
+
+        // Group items by category
+        const groupedItems = groupItemsByCategory(groceryData.items);
+
+        // Render grocery list
+        let html = '';
+        Object.entries(groupedItems).forEach(([category, items]) => {
+            html += `
+                <div class="grocery-category">
+                    <div class="grocery-category-header">${category}</div>
+                    ${items.map((item, index) => {
+                        const globalIndex = groceryData.items.indexOf(item);
+                        return `
+                            <div class="grocery-item ${item.checked ? 'checked' : ''}" data-index="${globalIndex}">
+                                <input type="checkbox" ${item.checked ? 'checked' : ''} data-index="${globalIndex}">
+                                <span class="grocery-item-name">${item.name}</span>
+                                ${item.quantity ? `<span class="grocery-item-quantity">${item.quantity}</span>` : ''}
+                            </div>
+                        `;
+                    }).join('')}
+                </div>
+            `;
+        });
+
+        container.innerHTML = html;
+        actionsSection.style.display = 'block';
+    },
+
+    /**
+     * Update progress bar
+     * @param {Object} groceryData - Grocery list data
+     */
+    updateGroceryProgress(groceryData) {
+        const progress = calculateProgress(groceryData.items);
+        document.getElementById('progress-fill').style.width = `${progress.percentage}%`;
+        document.getElementById('progress-text').textContent = `${progress.checked} of ${progress.total} items (${progress.percentage}%)`;
+    },
+
+    /**
+     * Render empty grocery list state
+     */
+    renderEmptyGroceryList() {
+        const container = document.getElementById('grocery-list-container');
+        const progressSection = document.getElementById('grocery-progress');
+        const actionsSection = document.getElementById('grocery-actions');
+        const summarySection = document.getElementById('planned-recipes-summary');
+
+        container.innerHTML = `
+            <div class="empty-state">
+                <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                    <path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path>
+                </svg>
+                <p>No grocery list yet</p>
+                <p class="empty-state-subtext">Plan your meals first, then generate your list</p>
+            </div>
+        `;
+        progressSection.style.display = 'none';
+        actionsSection.style.display = 'none';
+        summarySection.innerHTML = '';
+    },
+
+    // ==================== TAB NAVIGATION ====================
+
+    /**
+     * Switch to a specific tab
+     * @param {string} tabName - Name of the tab to switch to
+     */
+    switchTab(tabName) {
+        // Update tab buttons
+        document.querySelectorAll('.nav-tab').forEach(btn => {
+            btn.classList.toggle('active', btn.dataset.tab === tabName);
+        });
+
+        // Update tab content
+        document.querySelectorAll('.tab-content').forEach(content => {
+            content.classList.toggle('active', content.id === `${tabName}-tab`);
+        });
     }
 };
 

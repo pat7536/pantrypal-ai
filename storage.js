@@ -412,3 +412,147 @@ async function initializeDefaultCollection() {
         console.log('Created default "Favorites" collection');
     }
 }
+
+// ==================== MEAL PLANNER MANAGEMENT ====================
+
+/**
+ * Load planner data for a specific week
+ * @param {string} weekId - Week ID (YYYY-MM-DD of Monday)
+ * @returns {Promise<Object|null>} - Planner data or null
+ */
+async function loadPlanner(weekId) {
+    try {
+        const user = getCurrentUser();
+
+        if (USE_FIRESTORE && user) {
+            const plannerRef = db.collection('users').doc(user.uid).collection('planner').doc(weekId);
+            const doc = await plannerRef.get();
+
+            if (doc.exists) {
+                console.log('Loaded planner from Firestore:', weekId);
+                return doc.data();
+            }
+        }
+
+        return null;
+    } catch (error) {
+        console.error('Error loading planner:', error);
+        return null;
+    }
+}
+
+/**
+ * Save planner data for a specific week
+ * @param {string} weekId - Week ID (YYYY-MM-DD of Monday)
+ * @param {Object} plannerData - Planner data object
+ * @returns {Promise<boolean>} - Success status
+ */
+async function savePlanner(weekId, plannerData) {
+    try {
+        const user = getCurrentUser();
+
+        if (USE_FIRESTORE && user) {
+            const plannerRef = db.collection('users').doc(user.uid).collection('planner').doc(weekId);
+            await plannerRef.set(plannerData, { merge: true });
+            console.log('Planner saved to Firestore:', weekId);
+        }
+
+        return true;
+    } catch (error) {
+        console.error('Error saving planner:', error);
+        return false;
+    }
+}
+
+// ==================== GROCERY LIST MANAGEMENT ====================
+
+/**
+ * Load grocery list for a specific week
+ * @param {string} weekId - Week ID (YYYY-MM-DD of Monday)
+ * @returns {Promise<Object|null>} - Grocery list data or null
+ */
+async function loadGroceryList(weekId) {
+    try {
+        const user = getCurrentUser();
+
+        if (USE_FIRESTORE && user) {
+            const groceryRef = db.collection('users').doc(user.uid).collection('groceryLists').doc(weekId);
+            const doc = await groceryRef.get();
+
+            if (doc.exists) {
+                console.log('Loaded grocery list from Firestore:', weekId);
+                return doc.data();
+            }
+        }
+
+        return null;
+    } catch (error) {
+        console.error('Error loading grocery list:', error);
+        return null;
+    }
+}
+
+/**
+ * Save grocery list for a specific week
+ * @param {string} weekId - Week ID (YYYY-MM-DD of Monday)
+ * @param {Object} groceryData - Grocery list data object
+ * @returns {Promise<boolean>} - Success status
+ */
+async function saveGroceryList(weekId, groceryData) {
+    try {
+        const user = getCurrentUser();
+
+        if (USE_FIRESTORE && user) {
+            const groceryRef = db.collection('users').doc(user.uid).collection('groceryLists').doc(weekId);
+            await groceryRef.set(groceryData, { merge: true });
+            console.log('Grocery list saved to Firestore:', weekId);
+        }
+
+        return true;
+    } catch (error) {
+        console.error('Error saving grocery list:', error);
+        return false;
+    }
+}
+
+/**
+ * Update a single grocery item's checked status
+ * @param {string} weekId - Week ID
+ * @param {number} itemIndex - Index of the item in the array
+ * @param {boolean} checked - New checked status
+ * @returns {Promise<boolean>} - Success status
+ */
+async function updateGroceryItemStatus(weekId, itemIndex, checked) {
+    try {
+        const groceryData = await loadGroceryList(weekId);
+        if (!groceryData) return false;
+
+        groceryData.items[itemIndex].checked = checked;
+        return await saveGroceryList(weekId, groceryData);
+    } catch (error) {
+        console.error('Error updating grocery item:', error);
+        return false;
+    }
+}
+
+/**
+ * Clear/delete grocery list for a specific week
+ * @param {string} weekId - Week ID
+ * @returns {Promise<boolean>} - Success status
+ */
+async function clearGroceryList(weekId) {
+    try {
+        const user = getCurrentUser();
+
+        if (USE_FIRESTORE && user) {
+            const groceryRef = db.collection('users').doc(user.uid).collection('groceryLists').doc(weekId);
+            await groceryRef.delete();
+            console.log('Grocery list cleared from Firestore:', weekId);
+        }
+
+        return true;
+    } catch (error) {
+        console.error('Error clearing grocery list:', error);
+        return false;
+    }
+}

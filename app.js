@@ -1,7 +1,7 @@
 /**
  * app.js
  * Main controller for PantryPal AI
- * Version 3.1 - Added Recipe Collections support
+ * Version 3.2 - Added Weekly Meal Planner and Grocery List
  * Orchestrates all app functionality and event handling
  */
 
@@ -14,14 +14,19 @@ const AppState = {
     // Collections state
     collections: [],
     currentCollectionId: 'all',
-    currentRecipeIdForAssignment: null
+    currentRecipeIdForAssignment: null,
+    // Meal planner state
+    currentWeekId: null,
+    currentPlannerData: null,
+    currentGroceryData: null,
+    selectedDateForPlanning: null
 };
 
 /**
  * Initialize the application
  */
 function initApp() {
-    console.log('PantryPal AI v3.1 - Initializing with Firebase and Collections...');
+    console.log('PantryPal AI v3.2 - Initializing with Meal Planner and Grocery List...');
 
     // Initialize Firebase
     const firebaseInitialized = initializeFirebase();
@@ -140,6 +145,31 @@ function setupEventListeners() {
 
     // Event delegation for dynamically created elements
     document.addEventListener('click', handleDocumentClick);
+
+    // Tab navigation
+    document.querySelectorAll('.nav-tab').forEach(tab => {
+        tab.addEventListener('click', () => {
+            const tabName = tab.dataset.tab;
+            UI.switchTab(tabName);
+
+            // Load planner data when switching to planner tab
+            if (tabName === 'planner' && AppState.currentUser) {
+                loadPlannerData();
+            }
+
+            // Load grocery data when switching to grocery tab
+            if (tabName === 'grocery' && AppState.currentUser) {
+                loadGroceryData();
+            }
+        });
+    });
+
+    // Planner actions
+    document.getElementById('generate-grocery-btn').addEventListener('click', handleGenerateGroceryList);
+    document.getElementById('clear-planner-btn').addEventListener('click', handleClearPlanner);
+
+    // Grocery actions
+    document.getElementById('clear-grocery-btn').addEventListener('click', handleClearGroceryList);
 }
 
 /**
@@ -371,6 +401,33 @@ function handleDocumentClick(e) {
         !target.closest('.saved-recipe-actions')) {
         const recipeCard = target.closest('.saved-recipe');
         UI.toggleRecipeExpansion(recipeCard);
+    }
+
+    // Planner add recipe button
+    if (target.classList.contains('planner-add-btn')) {
+        const dateString = target.dataset.date;
+        handleOpenRecipeSelection(dateString);
+    }
+
+    // Planner remove meal button
+    if (target.classList.contains('planner-meal-remove')) {
+        const dateString = target.dataset.date;
+        handleRemoveMeal(dateString);
+    }
+
+    // Recipe selection item
+    if (target.closest('.recipe-selection-item')) {
+        const item = target.closest('.recipe-selection-item');
+        const recipeId = item.dataset.recipeId;
+        const dateString = item.dataset.date;
+        handleSelectRecipeForPlanner(recipeId, dateString);
+    }
+
+    // Grocery item checkbox
+    if (target.matches('.grocery-item input[type="checkbox"]')) {
+        const index = parseInt(target.dataset.index);
+        const checked = target.checked;
+        handleGroceryItemCheck(index, checked);
     }
 }
 
@@ -826,6 +883,302 @@ async function handleAssignCollections(e) {
     } finally {
         UI.hideButtonLoading(submitBtn);
         AppState.currentRecipeIdForAssignment = null;
+    }
+}
+
+// ==================== MEAL PLANNER HANDLERS ====================
+
+/**
+ * Load planner data for current week
+ */
+async function loadPlannerData() {
+    if (!AppState.currentUser) {
+        UI.showNotification('Please sign in to use the meal planner', 'error');
+        return;
+    }
+
+    try {
+        // Get current week ID
+        const weekStart = getCurrentWeekStart();
+        AppState.currentWeekId = formatDateToString(weekStart);
+
+        // Try to load existing planner data
+        let plannerData = await loadPlanner(AppState.currentWeekId);
+
+        // If no planner data exists, initialize a new one
+        if (!plannerData) {
+            plannerData = initializePlannerForWeek();
+            await savePlanner(AppState.currentWeekId, plannerData);
+            console.log('Initialized new planner for week:', AppState.currentWeekId);
+        }
+
+        AppState.currentPlannerData = plannerData;
+
+        // Load all recipes for display
+        const allRecipes = await loadRecipes();
+
+        // Render the planner grid
+        UI.renderPlannerGrid(plannerData, allRecipes);
+
+        console.log('Planner data loaded for week:', AppState.currentWeekId);
+    } catch (error) {
+        console.error('Error loading planner data:', error);
+        UI.showNotification('Error loading meal planner', 'error');
+    }
+}
+
+/**
+ * Handle opening recipe selection modal
+ * @param {string} dateString - Date to plan meal for
+ */
+async function handleOpenRecipeSelection(dateString) {
+    if (!AppState.currentUser) {
+        UI.showNotification('Please sign in to plan meals', 'error');
+        return;
+    }
+
+    AppState.selectedDateForPlanning = dateString;
+
+    // Load all saved recipes
+    const recipes = await loadRecipes();
+
+    if (recipes.length === 0) {
+        UI.showNotification('No saved recipes. Save some recipes first!', 'info');
+        return;
+    }
+
+    // Show recipe selection modal
+    UI.showRecipeSelectionModal(recipes, dateString);
+}
+
+/**
+ * Handle selecting a recipe for the planner
+ * @param {string} recipeId - Recipe ID
+ * @param {string} dateString - Date to assign recipe to
+ */
+async function handleSelectRecipeForPlanner(recipeId, dateString) {
+    if (!AppState.currentPlannerData) {
+        UI.showNotification('Planner not loaded', 'error');
+        return;
+    }
+
+    try {
+        // Update planner data
+        AppState.currentPlannerData = setMeal(AppState.currentPlannerData, dateString, recipeId);
+
+        // Save to Firestore
+        await savePlanner(AppState.currentWeekId, AppState.currentPlannerData);
+
+        // Close modal
+        UI.hideRecipeSelectionModal();
+
+        // Refresh planner display
+        const allRecipes = await loadRecipes();
+        UI.renderPlannerGrid(AppState.currentPlannerData, allRecipes);
+
+        // Get recipe name for notification
+        const recipe = allRecipes.find(r => r.id === recipeId);
+        const recipeName = recipe ? recipe.title : 'Recipe';
+
+        UI.showNotification(`${recipeName} added to planner`, 'success');
+    } catch (error) {
+        console.error('Error assigning recipe to planner:', error);
+        UI.showNotification('Error adding recipe to planner', 'error');
+    }
+}
+
+/**
+ * Handle removing a meal from the planner
+ * @param {string} dateString - Date to remove meal from
+ */
+async function handleRemoveMeal(dateString) {
+    if (!AppState.currentPlannerData) {
+        UI.showNotification('Planner not loaded', 'error');
+        return;
+    }
+
+    try {
+        // Remove meal from planner data
+        AppState.currentPlannerData = removeMeal(AppState.currentPlannerData, dateString);
+
+        // Save to Firestore
+        await savePlanner(AppState.currentWeekId, AppState.currentPlannerData);
+
+        // Refresh planner display
+        const allRecipes = await loadRecipes();
+        UI.renderPlannerGrid(AppState.currentPlannerData, allRecipes);
+
+        UI.showNotification('Meal removed from planner', 'success');
+    } catch (error) {
+        console.error('Error removing meal from planner:', error);
+        UI.showNotification('Error removing meal', 'error');
+    }
+}
+
+/**
+ * Handle generating grocery list from planner
+ */
+async function handleGenerateGroceryList() {
+    if (!AppState.currentPlannerData) {
+        UI.showNotification('Please load the meal planner first', 'error');
+        return;
+    }
+
+    const plannedRecipeIds = getPlannedRecipeIds(AppState.currentPlannerData);
+
+    if (plannedRecipeIds.length === 0) {
+        UI.showNotification('No meals planned for this week', 'info');
+        return;
+    }
+
+    try {
+        // Load all recipes
+        const allRecipes = await loadRecipes();
+
+        // Build grocery list
+        const groceryData = buildGroceryList(AppState.currentPlannerData, allRecipes);
+
+        // Save grocery list
+        await saveGroceryList(AppState.currentWeekId, groceryData);
+
+        AppState.currentGroceryData = groceryData;
+
+        UI.showNotification(`Grocery list generated with ${groceryData.items.length} items`, 'success');
+
+        // Switch to grocery tab
+        UI.switchTab('grocery');
+
+        // Render grocery list
+        UI.renderGroceryList(groceryData, allRecipes);
+    } catch (error) {
+        console.error('Error generating grocery list:', error);
+        UI.showNotification('Error generating grocery list', 'error');
+    }
+}
+
+/**
+ * Handle clearing the planner
+ */
+async function handleClearPlanner() {
+    if (!AppState.currentPlannerData) {
+        UI.showNotification('Planner not loaded', 'error');
+        return;
+    }
+
+    const confirmed = confirm('Are you sure you want to clear all meals for this week?');
+
+    if (!confirmed) {
+        return;
+    }
+
+    try {
+        // Clear all meals
+        AppState.currentPlannerData = clearPlannerMeals(AppState.currentPlannerData);
+
+        // Save to Firestore
+        await savePlanner(AppState.currentWeekId, AppState.currentPlannerData);
+
+        // Refresh planner display
+        const allRecipes = await loadRecipes();
+        UI.renderPlannerGrid(AppState.currentPlannerData, allRecipes);
+
+        UI.showNotification('Meal planner cleared', 'success');
+    } catch (error) {
+        console.error('Error clearing planner:', error);
+        UI.showNotification('Error clearing planner', 'error');
+    }
+}
+
+/**
+ * Load grocery list data for current week
+ */
+async function loadGroceryData() {
+    if (!AppState.currentUser) {
+        UI.showNotification('Please sign in to view grocery lists', 'error');
+        return;
+    }
+
+    try {
+        // Ensure we have the week ID
+        if (!AppState.currentWeekId) {
+            const weekStart = getCurrentWeekStart();
+            AppState.currentWeekId = formatDateToString(weekStart);
+        }
+
+        // Load grocery list
+        const groceryData = await loadGroceryList(AppState.currentWeekId);
+
+        if (groceryData) {
+            AppState.currentGroceryData = groceryData;
+            const allRecipes = await loadRecipes();
+            UI.renderGroceryList(groceryData, allRecipes);
+            console.log('Grocery list loaded for week:', AppState.currentWeekId);
+        } else {
+            // No grocery list exists yet
+            AppState.currentGroceryData = null;
+            UI.renderEmptyGroceryList();
+            console.log('No grocery list found for week:', AppState.currentWeekId);
+        }
+    } catch (error) {
+        console.error('Error loading grocery data:', error);
+        UI.showNotification('Error loading grocery list', 'error');
+    }
+}
+
+/**
+ * Handle grocery item checkbox change
+ * @param {number} index - Item index
+ * @param {boolean} checked - New checked state
+ */
+async function handleGroceryItemCheck(index, checked) {
+    if (!AppState.currentGroceryData) {
+        return;
+    }
+
+    try {
+        // Update local state
+        AppState.currentGroceryData.items[index].checked = checked;
+
+        // Save to Firestore
+        await updateGroceryItemStatus(AppState.currentWeekId, index, checked);
+
+        // Update progress bar
+        UI.updateGroceryProgress(AppState.currentGroceryData);
+
+        console.log(`Item ${index} checked: ${checked}`);
+    } catch (error) {
+        console.error('Error updating grocery item:', error);
+        // Revert checkbox state on error
+        const checkbox = document.querySelector(`.grocery-item input[data-index="${index}"]`);
+        if (checkbox) {
+            checkbox.checked = !checked;
+        }
+    }
+}
+
+/**
+ * Handle clearing the grocery list
+ */
+async function handleClearGroceryList() {
+    if (!AppState.currentGroceryData) {
+        UI.showNotification('No grocery list to clear', 'info');
+        return;
+    }
+
+    const confirmed = confirm('Are you sure you want to clear the grocery list?');
+
+    if (!confirmed) {
+        return;
+    }
+
+    try {
+        await clearGroceryList(AppState.currentWeekId);
+        AppState.currentGroceryData = null;
+        UI.renderEmptyGroceryList();
+        UI.showNotification('Grocery list cleared', 'success');
+    } catch (error) {
+        console.error('Error clearing grocery list:', error);
+        UI.showNotification('Error clearing grocery list', 'error');
     }
 }
 
