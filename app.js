@@ -168,6 +168,10 @@ function setupEventListeners() {
     document.getElementById('generate-grocery-btn').addEventListener('click', handleGenerateGroceryList);
     document.getElementById('clear-planner-btn').addEventListener('click', handleClearPlanner);
 
+    // Planner week navigation
+    document.getElementById('prev-week-btn').addEventListener('click', handlePreviousWeek);
+    document.getElementById('next-week-btn').addEventListener('click', handleNextWeek);
+
     // Grocery actions
     document.getElementById('clear-grocery-btn').addEventListener('click', handleClearGroceryList);
 }
@@ -898,8 +902,8 @@ async function loadPlannerData() {
     }
 
     try {
-        // Get current week ID
-        const weekStart = getCurrentWeekStart();
+        // Get current week ID (uses weekOffset from planner.js)
+        const weekStart = getCurrentWeekStart(getWeekOffset());
         AppState.currentWeekId = formatDateToString(weekStart);
 
         // Try to load existing planner data
@@ -925,6 +929,22 @@ async function loadPlannerData() {
         console.error('Error loading planner data:', error);
         UI.showNotification('Error loading meal planner', 'error');
     }
+}
+
+/**
+ * Handle navigating to previous week
+ */
+async function handlePreviousWeek() {
+    goToPreviousWeek();
+    await loadPlannerData();
+}
+
+/**
+ * Handle navigating to next week
+ */
+async function handleNextWeek() {
+    goToNextWeek();
+    await loadPlannerData();
 }
 
 /**

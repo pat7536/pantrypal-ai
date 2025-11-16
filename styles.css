@@ -974,11 +974,51 @@ body {
     font-size: 1rem;
 }
 
+.planner-week-nav {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: var(--spacing-md);
+    margin-bottom: var(--spacing-lg);
+}
+
+.planner-week-nav button {
+    background: var(--pastel-lavender);
+    border: none;
+    border-radius: var(--radius-sm);
+    padding: var(--spacing-sm) var(--spacing-md);
+    cursor: pointer;
+    font-weight: 600;
+    color: var(--text-dark);
+    transition: all 0.2s ease;
+}
+
+.planner-week-nav button:hover {
+    background: var(--primary);
+    color: var(--white);
+    transform: translateY(-2px);
+}
+
+.planner-week-nav .week-range {
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: var(--text-dark);
+    min-width: 220px;
+    text-align: center;
+}
+
+.planner-grid-wrapper {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    margin-bottom: var(--spacing-lg);
+    padding-bottom: var(--spacing-sm);
+}
+
 .planner-grid {
     display: grid;
     grid-template-columns: repeat(7, 1fr);
     gap: var(--spacing-sm);
-    margin-bottom: var(--spacing-lg);
+    min-width: 700px;
 }
 
 .planner-day {

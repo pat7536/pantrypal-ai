@@ -255,11 +255,19 @@
                 <div class="planner-section">
                     <div class="planner-header">
                         <h2>Weekly Meal Planner</h2>
-                        <p id="planner-week-range">Loading week...</p>
+                        <p>Plan your dinners for the week</p>
                     </div>
 
-                    <div id="planner-grid" class="planner-grid">
-                        <!-- Grid will be rendered by JavaScript -->
+                    <div class="planner-week-nav">
+                        <button id="prev-week-btn">&larr; Previous</button>
+                        <span id="planner-week-range" class="week-range">Loading week...</span>
+                        <button id="next-week-btn">Next &rarr;</button>
+                    </div>
+
+                    <div class="planner-grid-wrapper">
+                        <div id="planner-grid" class="planner-grid">
+                            <!-- Grid will be rendered by JavaScript -->
+                        </div>
                     </div>
 
                     <div class="planner-actions">
