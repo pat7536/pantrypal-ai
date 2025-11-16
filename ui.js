@@ -460,9 +460,18 @@ const UI = {
      * Show create collection modal
      */
     showCreateCollectionModal() {
+        console.log('Opening create collection modal...');
         const modal = document.getElementById('create-collection-modal');
+        if (!modal) {
+            console.error('Create collection modal not found in DOM');
+            return;
+        }
         modal.style.display = 'flex';
-        document.getElementById('collection-name-input').focus();
+        console.log('Modal display set to flex');
+        const input = document.getElementById('collection-name-input');
+        if (input) {
+            input.focus();
+        }
     },
 
     /**

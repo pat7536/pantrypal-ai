@@ -577,9 +577,16 @@ document.addEventListener('keydown', handleKeyboardShortcuts);
  */
 function setupCollectionEventListeners() {
     // New collection button
-    document.getElementById('new-collection-btn').addEventListener('click', () => {
-        UI.showCreateCollectionModal();
-    });
+    const newCollectionBtn = document.getElementById('new-collection-btn');
+    if (newCollectionBtn) {
+        newCollectionBtn.addEventListener('click', () => {
+            console.log('New collection button clicked');
+            UI.showCreateCollectionModal();
+        });
+        console.log('Collection event listeners setup complete');
+    } else {
+        console.error('New collection button not found in DOM');
+    }
 
     // Create collection form
     document.getElementById('create-collection-form').addEventListener('submit', handleCreateCollection);
