@@ -41,53 +41,80 @@ const UI = {
 
     /**
      * Display saved recipes from localStorage or Firestore
+     * @param {string} collectionId - Collection ID to filter by (default: 'all')
+     * @param {Array} collections - Array of collection objects for tag display
      */
-    async displaySavedRecipes() {
+    async displaySavedRecipes(collectionId = 'all', collections = []) {
         const container = document.getElementById('saved-recipes');
-        const recipes = await loadRecipes();
+        const recipes = await getRecipesInCollection(collectionId);
 
         if (recipes.length === 0) {
+            const emptyMessage = collectionId === 'all'
+                ? 'No saved recipes yet'
+                : 'No recipes in this collection';
+            const emptySubtext = collectionId === 'all'
+                ? 'Generate and save recipes to see them here'
+                : 'Add recipes to this collection to see them here';
+
             container.innerHTML = `
                 <div class="empty-state">
                     <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
                         <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"></path>
                     </svg>
-                    <p>No saved recipes yet</p>
-                    <p class="empty-state-subtext">Generate and save recipes to see them here</p>
+                    <p>${emptyMessage}</p>
+                    <p class="empty-state-subtext">${emptySubtext}</p>
                 </div>
             `;
             return;
         }
 
-        container.innerHTML = recipes.map(recipe => `
-            <div class="saved-recipe" data-recipe-id="${recipe.id}">
-                <div class="saved-recipe-header">
-                    <div>
-                        <h3>${recipe.title}</h3>
-                        <p class="saved-recipe-meta">
-                            ${recipe.cuisineFocus ? recipe.cuisineFocus + ' • ' : ''}
-                            ${recipe.mealType}
-                            ${recipe.dietaryPreference && recipe.dietaryPreference !== 'none' ? ' • ' + recipe.dietaryPreference : ''}
-                        </p>
+        container.innerHTML = recipes.map(recipe => {
+            // Get collection names for this recipe
+            const recipeCollections = (recipe.collectionIds || [])
+                .map(cId => collections.find(c => c.id === cId))
+                .filter(c => c)
+                .map(c => c.name);
+
+            return `
+                <div class="saved-recipe" data-recipe-id="${recipe.id}">
+                    <div class="saved-recipe-header">
+                        <div>
+                            <h3>${recipe.title}</h3>
+                            <p class="saved-recipe-meta">
+                                ${recipe.cuisineFocus ? recipe.cuisineFocus + ' • ' : ''}
+                                ${recipe.mealType || 'dinner'}
+                                ${recipe.dietaryPreference && recipe.dietaryPreference !== 'none' ? ' • ' + recipe.dietaryPreference : ''}
+                            </p>
+                            ${recipeCollections.length > 0 ? `
+                                <div class="recipe-collections-tags">
+                                    ${recipeCollections.map(name => `<span class="collection-tag">${name}</span>`).join('')}
+                                </div>
+                            ` : ''}
+                        </div>
+                        <div class="saved-recipe-actions">
+                            <button class="add-to-collection-btn" data-recipe-id="${recipe.id}" title="Add to collection">
+                                + Collection
+                            </button>
+                            <button class="btn btn-small btn-danger delete-recipe-btn" data-recipe-id="${recipe.id}">
+                                Remove
+                            </button>
+                        </div>
                     </div>
-                    <button class="btn btn-small btn-danger delete-recipe-btn" data-recipe-id="${recipe.id}">
-                        Remove
-                    </button>
-                </div>
 
-                <div class="saved-recipe-details">
-                    <h4>Ingredients:</h4>
-                    <ul>
-                        ${recipe.ingredients.map(ing => `<li>${ing}</li>`).join('')}
-                    </ul>
+                    <div class="saved-recipe-details">
+                        <h4>Ingredients:</h4>
+                        <ul>
+                            ${recipe.ingredients.map(ing => `<li>${ing}</li>`).join('')}
+                        </ul>
 
-                    <h4>Steps:</h4>
-                    <ol>
-                        ${recipe.steps.map(step => `<li>${step}</li>`).join('')}
-                    </ol>
+                        <h4>Steps:</h4>
+                        <ol>
+                            ${recipe.steps.map(step => `<li>${step}</li>`).join('')}
+                        </ol>
+                    </div>
                 </div>
-            </div>
-        `).join('');
+            `;
+        }).join('');
     },
 
     /**
@@ -351,6 +378,175 @@ const UI = {
         } else {
             signinForm.style.display = 'block';
             title.textContent = 'Sign In';
+        }
+    },
+
+    // ==================== COLLECTIONS UI ====================
+
+    /**
+     * Render collections list in the sidebar
+     * @param {Array} collections - Array of collection objects
+     * @param {string} activeCollectionId - Currently active collection ID
+     * @param {Object} recipeCounts - Object with collection IDs as keys and counts as values
+     */
+    renderCollectionsList(collections, activeCollectionId = 'all', recipeCounts = {}) {
+        const container = document.getElementById('collections-list');
+
+        let html = `
+            <div class="collection-item ${activeCollectionId === 'all' ? 'active' : ''}" data-collection-id="all">
+                <span class="collection-name">All Recipes</span>
+                <span class="collection-count">${recipeCounts.all || 0}</span>
+            </div>
+        `;
+
+        collections.forEach(collection => {
+            html += `
+                <div class="collection-item ${activeCollectionId === collection.id ? 'active' : ''}" data-collection-id="${collection.id}">
+                    <span class="collection-name">${collection.name}</span>
+                    <span class="collection-count">${recipeCounts[collection.id] || 0}</span>
+                </div>
+            `;
+        });
+
+        container.innerHTML = html;
+    },
+
+    /**
+     * Update current collection header display
+     * @param {string} collectionName - Name of the collection
+     * @param {boolean} isCustomCollection - Whether this is a custom collection (show menu)
+     */
+    updateCollectionHeader(collectionName, isCustomCollection = false) {
+        const header = document.getElementById('current-collection-header');
+        const nameElement = document.getElementById('current-collection-name');
+
+        if (isCustomCollection) {
+            header.style.display = 'flex';
+            nameElement.textContent = collectionName;
+        } else {
+            header.style.display = 'none';
+        }
+    },
+
+    /**
+     * Show collection menu dropdown
+     */
+    showCollectionMenu() {
+        const menu = document.getElementById('collection-menu');
+        menu.style.display = 'block';
+    },
+
+    /**
+     * Hide collection menu dropdown
+     */
+    hideCollectionMenu() {
+        const menu = document.getElementById('collection-menu');
+        menu.style.display = 'none';
+    },
+
+    /**
+     * Toggle collection menu visibility
+     */
+    toggleCollectionMenu() {
+        const menu = document.getElementById('collection-menu');
+        if (menu.style.display === 'none' || menu.style.display === '') {
+            this.showCollectionMenu();
+        } else {
+            this.hideCollectionMenu();
+        }
+    },
+
+    /**
+     * Show create collection modal
+     */
+    showCreateCollectionModal() {
+        const modal = document.getElementById('create-collection-modal');
+        modal.style.display = 'flex';
+        document.getElementById('collection-name-input').focus();
+    },
+
+    /**
+     * Hide create collection modal
+     */
+    hideCreateCollectionModal() {
+        const modal = document.getElementById('create-collection-modal');
+        modal.style.display = 'none';
+        document.getElementById('create-collection-form').reset();
+    },
+
+    /**
+     * Show rename collection modal
+     * @param {string} currentName - Current name of the collection
+     */
+    showRenameCollectionModal(currentName) {
+        const modal = document.getElementById('rename-collection-modal');
+        const input = document.getElementById('rename-collection-input');
+        modal.style.display = 'flex';
+        input.value = currentName;
+        input.focus();
+        input.select();
+    },
+
+    /**
+     * Hide rename collection modal
+     */
+    hideRenameCollectionModal() {
+        const modal = document.getElementById('rename-collection-modal');
+        modal.style.display = 'none';
+        document.getElementById('rename-collection-form').reset();
+    },
+
+    /**
+     * Show assign to collections modal
+     * @param {Array} collections - Array of collection objects
+     * @param {Array} currentCollectionIds - Array of currently assigned collection IDs
+     */
+    showAssignCollectionsModal(collections, currentCollectionIds = []) {
+        const modal = document.getElementById('assign-collections-modal');
+        const checkboxList = document.getElementById('collections-checkbox-list');
+
+        if (collections.length === 0) {
+            checkboxList.innerHTML = `
+                <p class="empty-state-subtext">No collections yet. Create a collection first!</p>
+            `;
+        } else {
+            checkboxList.innerHTML = collections.map(collection => `
+                <div class="collection-checkbox-item">
+                    <input type="checkbox" id="collection-${collection.id}" value="${collection.id}"
+                        ${currentCollectionIds.includes(collection.id) ? 'checked' : ''}>
+                    <label for="collection-${collection.id}">${collection.name}</label>
+                </div>
+            `).join('');
+        }
+
+        modal.style.display = 'flex';
+    },
+
+    /**
+     * Hide assign to collections modal
+     */
+    hideAssignCollectionsModal() {
+        const modal = document.getElementById('assign-collections-modal');
+        modal.style.display = 'none';
+    },
+
+    /**
+     * Get selected collection IDs from assign modal
+     * @returns {Array<string>} - Array of selected collection IDs
+     */
+    getSelectedCollectionIds() {
+        const checkboxes = document.querySelectorAll('#collections-checkbox-list input[type="checkbox"]:checked');
+        return Array.from(checkboxes).map(cb => cb.value);
+    },
+
+    /**
+     * Hide any modal by ID
+     * @param {string} modalId - ID of the modal to hide
+     */
+    hideModal(modalId) {
+        const modal = document.getElementById(modalId);
+        if (modal) {
+            modal.style.display = 'none';
         }
     }
 };

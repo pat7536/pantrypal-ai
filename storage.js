@@ -1,10 +1,11 @@
 /**
  * storage.js
  * Handles localStorage operations and Firestore sync for PantryPal AI
- * Version 2.0 - Cloud-enabled with Firebase Firestore
+ * Version 3.1 - Added Recipe Collections support
  */
 
 const STORAGE_KEY = 'pantry-recipes';
+const COLLECTIONS_KEY = 'pantry-collections';
 const USE_FIRESTORE = true; // Toggle between localStorage and Firestore
 
 /**
@@ -19,7 +20,8 @@ async function saveRecipe(recipe) {
         const enrichedRecipe = {
             ...recipe,
             userId: user ? user.uid : 'local',
-            updatedAt: new Date().toISOString()
+            updatedAt: new Date().toISOString(),
+            collectionIds: recipe.collectionIds || [] // Initialize empty collections array
         };
 
         if (USE_FIRESTORE && user) {
@@ -209,5 +211,204 @@ function importRecipes(jsonString) {
     } catch (error) {
         console.error('Error importing recipes:', error);
         return false;
+    }
+}
+
+// ==================== COLLECTIONS MANAGEMENT ====================
+
+/**
+ * Create a new collection
+ * @param {string} name - Collection name
+ * @returns {Promise<Object|null>} - Created collection object or null
+ */
+async function createCollection(name) {
+    try {
+        const user = getCurrentUser();
+        const collectionId = 'collection-' + Date.now() + '-' + Math.random().toString(36).substr(2, 9);
+
+        const collection = {
+            id: collectionId,
+            name: name.trim(),
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString()
+        };
+
+        if (USE_FIRESTORE && user) {
+            const collectionRef = db.collection('users').doc(user.uid).collection('collections').doc(collectionId);
+            await collectionRef.set(collection);
+            console.log('Collection created in Firestore:', collectionId);
+        } else {
+            const collections = await getCollections();
+            collections.push(collection);
+            localStorage.setItem(COLLECTIONS_KEY, JSON.stringify(collections));
+        }
+
+        return collection;
+    } catch (error) {
+        console.error('Error creating collection:', error);
+        return null;
+    }
+}
+
+/**
+ * Get all collections for current user
+ * @returns {Promise<Array>} - Array of collection objects
+ */
+async function getCollections() {
+    try {
+        const user = getCurrentUser();
+
+        if (USE_FIRESTORE && user) {
+            const collectionsRef = db.collection('users').doc(user.uid).collection('collections');
+            const snapshot = await collectionsRef.orderBy('createdAt', 'asc').get();
+
+            const collections = [];
+            snapshot.forEach((doc) => {
+                collections.push(doc.data());
+            });
+
+            console.log(`Loaded ${collections.length} collections from Firestore`);
+            return collections;
+        } else {
+            const collectionsJson = localStorage.getItem(COLLECTIONS_KEY);
+            return collectionsJson ? JSON.parse(collectionsJson) : [];
+        }
+    } catch (error) {
+        console.error('Error loading collections:', error);
+        return [];
+    }
+}
+
+/**
+ * Rename a collection
+ * @param {string} collectionId - Collection ID
+ * @param {string} newName - New collection name
+ * @returns {Promise<boolean>} - Success status
+ */
+async function renameCollection(collectionId, newName) {
+    try {
+        const user = getCurrentUser();
+
+        if (USE_FIRESTORE && user) {
+            const collectionRef = db.collection('users').doc(user.uid).collection('collections').doc(collectionId);
+            await collectionRef.update({
+                name: newName.trim(),
+                updatedAt: new Date().toISOString()
+            });
+            console.log('Collection renamed in Firestore:', collectionId);
+        } else {
+            const collections = await getCollections();
+            const index = collections.findIndex(c => c.id === collectionId);
+            if (index !== -1) {
+                collections[index].name = newName.trim();
+                collections[index].updatedAt = new Date().toISOString();
+                localStorage.setItem(COLLECTIONS_KEY, JSON.stringify(collections));
+            }
+        }
+
+        return true;
+    } catch (error) {
+        console.error('Error renaming collection:', error);
+        return false;
+    }
+}
+
+/**
+ * Delete a collection (does NOT delete recipes, just removes collectionId from them)
+ * @param {string} collectionId - Collection ID
+ * @returns {Promise<boolean>} - Success status
+ */
+async function deleteCollection(collectionId) {
+    try {
+        const user = getCurrentUser();
+
+        // First, remove this collectionId from all recipes
+        const recipes = await loadRecipes();
+        for (const recipe of recipes) {
+            if (recipe.collectionIds && recipe.collectionIds.includes(collectionId)) {
+                recipe.collectionIds = recipe.collectionIds.filter(id => id !== collectionId);
+                await saveRecipe(recipe);
+            }
+        }
+
+        // Then delete the collection itself
+        if (USE_FIRESTORE && user) {
+            const collectionRef = db.collection('users').doc(user.uid).collection('collections').doc(collectionId);
+            await collectionRef.delete();
+            console.log('Collection deleted from Firestore:', collectionId);
+        } else {
+            const collections = await getCollections();
+            const filteredCollections = collections.filter(c => c.id !== collectionId);
+            localStorage.setItem(COLLECTIONS_KEY, JSON.stringify(filteredCollections));
+        }
+
+        return true;
+    } catch (error) {
+        console.error('Error deleting collection:', error);
+        return false;
+    }
+}
+
+/**
+ * Assign a recipe to one or more collections
+ * @param {string} recipeId - Recipe ID
+ * @param {Array<string>} collectionIds - Array of collection IDs
+ * @returns {Promise<boolean>} - Success status
+ */
+async function assignRecipeToCollections(recipeId, collectionIds) {
+    try {
+        const recipe = await getRecipeById(recipeId);
+        if (!recipe) {
+            throw new Error('Recipe not found');
+        }
+
+        recipe.collectionIds = collectionIds;
+        recipe.updatedAt = new Date().toISOString();
+
+        await saveRecipe(recipe);
+        console.log(`Recipe ${recipeId} assigned to collections:`, collectionIds);
+        return true;
+    } catch (error) {
+        console.error('Error assigning recipe to collections:', error);
+        return false;
+    }
+}
+
+/**
+ * Get recipes in a specific collection
+ * @param {string} collectionId - Collection ID (use 'all' for all recipes)
+ * @returns {Promise<Array>} - Array of recipe objects
+ */
+async function getRecipesInCollection(collectionId) {
+    const recipes = await loadRecipes();
+
+    if (collectionId === 'all') {
+        return recipes;
+    }
+
+    return recipes.filter(recipe =>
+        recipe.collectionIds && recipe.collectionIds.includes(collectionId)
+    );
+}
+
+/**
+ * Get a single collection by ID
+ * @param {string} collectionId - Collection ID
+ * @returns {Promise<Object|null>} - Collection object or null
+ */
+async function getCollectionById(collectionId) {
+    const collections = await getCollections();
+    return collections.find(c => c.id === collectionId) || null;
+}
+
+/**
+ * Initialize default collection if none exist
+ * @returns {Promise<void>}
+ */
+async function initializeDefaultCollection() {
+    const collections = await getCollections();
+    if (collections.length === 0) {
+        await createCollection('Favorites');
+        console.log('Created default "Favorites" collection');
     }
 }

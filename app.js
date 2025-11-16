@@ -1,7 +1,7 @@
 /**
  * app.js
  * Main controller for PantryPal AI
- * Version 2.0 - Cloud-enabled with Firebase
+ * Version 3.1 - Added Recipe Collections support
  * Orchestrates all app functionality and event handling
  */
 
@@ -10,14 +10,18 @@ const AppState = {
     currentGeneratedRecipes: [],
     currentUploadedImage: null,
     currentDetectedIngredients: [],
-    currentUser: null
+    currentUser: null,
+    // Collections state
+    collections: [],
+    currentCollectionId: 'all',
+    currentRecipeIdForAssignment: null
 };
 
 /**
  * Initialize the application
  */
 function initApp() {
-    console.log('PantryPal AI v2.0 - Initializing with Firebase...');
+    console.log('PantryPal AI v3.1 - Initializing with Firebase and Collections...');
 
     // Initialize Firebase
     const firebaseInitialized = initializeFirebase();
@@ -33,6 +37,9 @@ function initApp() {
     // Setup event listeners
     setupEventListeners();
 
+    // Setup collection event listeners
+    setupCollectionEventListeners();
+
     console.log('PantryPal AI ready!');
 }
 
@@ -40,7 +47,7 @@ function initApp() {
  * Setup authentication state listener
  */
 function setupAuthStateListener() {
-    onAuthStateChanged((user) => {
+    onAuthStateChanged(async (user) => {
         AppState.currentUser = user;
 
         // Update UI based on auth state
@@ -49,13 +56,20 @@ function setupAuthStateListener() {
         if (user) {
             console.log('User signed in:', user.email);
 
-            // Load user's recipes from Firestore
-            UI.displaySavedRecipes();
+            // Initialize default collection if needed
+            await initializeDefaultCollection();
+
+            // Load user's collections and recipes
+            await refreshCollectionsAndRecipes();
         } else {
             console.log('User signed out');
 
+            // Reset collections state
+            AppState.collections = [];
+            AppState.currentCollectionId = 'all';
+
             // Clear saved recipes display (will show empty state)
-            UI.displaySavedRecipes();
+            await refreshCollectionsAndRecipes();
         }
     });
 }
@@ -323,8 +337,38 @@ function handleDocumentClick(e) {
         handleUseIngredients(ingredients);
     }
 
-    // Saved recipe card (for expansion)
-    if (target.closest('.saved-recipe') && !target.classList.contains('delete-recipe-btn')) {
+    // Add to collection button
+    if (target.classList.contains('add-to-collection-btn')) {
+        e.stopPropagation(); // Prevent recipe expansion
+        const recipeId = target.dataset.recipeId;
+        handleOpenAssignCollections(recipeId);
+    }
+
+    // Collection item click (switch collection)
+    if (target.closest('.collection-item')) {
+        const collectionItem = target.closest('.collection-item');
+        const collectionId = collectionItem.dataset.collectionId;
+        handleSwitchCollection(collectionId);
+    }
+
+    // Modal close buttons
+    if (target.classList.contains('modal-close') || target.dataset.modal) {
+        const modalId = target.dataset.modal;
+        if (modalId) {
+            UI.hideModal(modalId);
+        }
+    }
+
+    // Click outside collection menu to close it
+    if (!target.closest('.collection-actions') && !target.closest('#collection-menu')) {
+        UI.hideCollectionMenu();
+    }
+
+    // Saved recipe card (for expansion) - exclude buttons
+    if (target.closest('.saved-recipe') &&
+        !target.classList.contains('delete-recipe-btn') &&
+        !target.classList.contains('add-to-collection-btn') &&
+        !target.closest('.saved-recipe-actions')) {
         const recipeCard = target.closest('.saved-recipe');
         UI.toggleRecipeExpansion(recipeCard);
     }
@@ -526,6 +570,258 @@ function handleKeyboardShortcuts(e) {
 // Setup keyboard shortcuts
 document.addEventListener('keydown', handleKeyboardShortcuts);
 
+// ==================== COLLECTIONS HANDLERS ====================
+
+/**
+ * Setup collection-specific event listeners
+ */
+function setupCollectionEventListeners() {
+    // New collection button
+    document.getElementById('new-collection-btn').addEventListener('click', () => {
+        UI.showCreateCollectionModal();
+    });
+
+    // Create collection form
+    document.getElementById('create-collection-form').addEventListener('submit', handleCreateCollection);
+
+    // Rename collection form
+    document.getElementById('rename-collection-form').addEventListener('submit', handleRenameCollection);
+
+    // Assign collections form
+    document.getElementById('assign-collections-form').addEventListener('submit', handleAssignCollections);
+
+    // Collection menu button
+    document.getElementById('collection-menu-btn').addEventListener('click', (e) => {
+        e.stopPropagation();
+        UI.toggleCollectionMenu();
+    });
+
+    // Rename collection menu item
+    document.getElementById('rename-collection-btn').addEventListener('click', () => {
+        UI.hideCollectionMenu();
+        const collection = AppState.collections.find(c => c.id === AppState.currentCollectionId);
+        if (collection) {
+            UI.showRenameCollectionModal(collection.name);
+        }
+    });
+
+    // Delete collection menu item
+    document.getElementById('delete-collection-btn').addEventListener('click', handleDeleteCollection);
+}
+
+/**
+ * Refresh collections list and recipes display
+ */
+async function refreshCollectionsAndRecipes() {
+    // Load collections
+    AppState.collections = await getCollections();
+
+    // Calculate recipe counts for each collection
+    const allRecipes = await loadRecipes();
+    const recipeCounts = { all: allRecipes.length };
+
+    AppState.collections.forEach(collection => {
+        recipeCounts[collection.id] = allRecipes.filter(
+            recipe => recipe.collectionIds && recipe.collectionIds.includes(collection.id)
+        ).length;
+    });
+
+    // Render collections list
+    UI.renderCollectionsList(AppState.collections, AppState.currentCollectionId, recipeCounts);
+
+    // Update collection header
+    if (AppState.currentCollectionId === 'all') {
+        UI.updateCollectionHeader('All Recipes', false);
+    } else {
+        const currentCollection = AppState.collections.find(c => c.id === AppState.currentCollectionId);
+        if (currentCollection) {
+            UI.updateCollectionHeader(currentCollection.name, true);
+        } else {
+            // Collection was deleted, switch to all
+            AppState.currentCollectionId = 'all';
+            UI.updateCollectionHeader('All Recipes', false);
+        }
+    }
+
+    // Display recipes for current collection
+    await UI.displaySavedRecipes(AppState.currentCollectionId, AppState.collections);
+}
+
+/**
+ * Handle switching to a different collection
+ * @param {string} collectionId - Collection ID to switch to
+ */
+async function handleSwitchCollection(collectionId) {
+    AppState.currentCollectionId = collectionId;
+    await refreshCollectionsAndRecipes();
+    UI.showNotification(`Viewing ${collectionId === 'all' ? 'All Recipes' : AppState.collections.find(c => c.id === collectionId)?.name || 'collection'}`, 'info');
+}
+
+/**
+ * Handle creating a new collection
+ * @param {Event} e - Form submit event
+ */
+async function handleCreateCollection(e) {
+    e.preventDefault();
+
+    const nameInput = document.getElementById('collection-name-input');
+    const name = nameInput.value.trim();
+
+    if (!name) {
+        UI.showNotification('Please enter a collection name', 'error');
+        return;
+    }
+
+    const submitBtn = e.target.querySelector('button[type="submit"]');
+    UI.showButtonLoading(submitBtn, 'Creating...');
+
+    try {
+        const collection = await createCollection(name);
+
+        if (collection) {
+            UI.showNotification(`Collection "${name}" created!`, 'success');
+            UI.hideCreateCollectionModal();
+            await refreshCollectionsAndRecipes();
+        } else {
+            throw new Error('Failed to create collection');
+        }
+    } catch (error) {
+        console.error('Error creating collection:', error);
+        UI.showNotification('Error creating collection', 'error');
+    } finally {
+        UI.hideButtonLoading(submitBtn);
+    }
+}
+
+/**
+ * Handle renaming a collection
+ * @param {Event} e - Form submit event
+ */
+async function handleRenameCollection(e) {
+    e.preventDefault();
+
+    const newName = document.getElementById('rename-collection-input').value.trim();
+
+    if (!newName) {
+        UI.showNotification('Please enter a new name', 'error');
+        return;
+    }
+
+    const submitBtn = e.target.querySelector('button[type="submit"]');
+    UI.showButtonLoading(submitBtn, 'Renaming...');
+
+    try {
+        const success = await renameCollection(AppState.currentCollectionId, newName);
+
+        if (success) {
+            UI.showNotification(`Collection renamed to "${newName}"`, 'success');
+            UI.hideRenameCollectionModal();
+            await refreshCollectionsAndRecipes();
+        } else {
+            throw new Error('Failed to rename collection');
+        }
+    } catch (error) {
+        console.error('Error renaming collection:', error);
+        UI.showNotification('Error renaming collection', 'error');
+    } finally {
+        UI.hideButtonLoading(submitBtn);
+    }
+}
+
+/**
+ * Handle deleting the current collection
+ */
+async function handleDeleteCollection() {
+    UI.hideCollectionMenu();
+
+    const collection = AppState.collections.find(c => c.id === AppState.currentCollectionId);
+
+    if (!collection) {
+        UI.showNotification('Collection not found', 'error');
+        return;
+    }
+
+    const confirmed = confirm(`Are you sure you want to delete "${collection.name}"?\n\nThis will NOT delete the recipes, only the collection.`);
+
+    if (!confirmed) {
+        return;
+    }
+
+    try {
+        const success = await deleteCollection(AppState.currentCollectionId);
+
+        if (success) {
+            UI.showNotification(`Collection "${collection.name}" deleted`, 'success');
+            AppState.currentCollectionId = 'all'; // Switch back to all recipes
+            await refreshCollectionsAndRecipes();
+        } else {
+            throw new Error('Failed to delete collection');
+        }
+    } catch (error) {
+        console.error('Error deleting collection:', error);
+        UI.showNotification('Error deleting collection', 'error');
+    }
+}
+
+/**
+ * Handle opening the assign to collections modal
+ * @param {string} recipeId - Recipe ID
+ */
+async function handleOpenAssignCollections(recipeId) {
+    AppState.currentRecipeIdForAssignment = recipeId;
+
+    const recipe = await getRecipeById(recipeId);
+
+    if (!recipe) {
+        UI.showNotification('Recipe not found', 'error');
+        return;
+    }
+
+    const currentCollectionIds = recipe.collectionIds || [];
+    UI.showAssignCollectionsModal(AppState.collections, currentCollectionIds);
+}
+
+/**
+ * Handle assigning recipe to collections
+ * @param {Event} e - Form submit event
+ */
+async function handleAssignCollections(e) {
+    e.preventDefault();
+
+    if (!AppState.currentRecipeIdForAssignment) {
+        UI.showNotification('No recipe selected', 'error');
+        return;
+    }
+
+    const selectedCollectionIds = UI.getSelectedCollectionIds();
+    const submitBtn = e.target.querySelector('button[type="submit"]');
+    UI.showButtonLoading(submitBtn, 'Saving...');
+
+    try {
+        const success = await assignRecipeToCollections(AppState.currentRecipeIdForAssignment, selectedCollectionIds);
+
+        if (success) {
+            const count = selectedCollectionIds.length;
+            UI.showNotification(
+                count === 0
+                    ? 'Recipe removed from all collections'
+                    : `Recipe added to ${count} collection${count > 1 ? 's' : ''}`,
+                'success'
+            );
+            UI.hideAssignCollectionsModal();
+            await refreshCollectionsAndRecipes();
+        } else {
+            throw new Error('Failed to assign recipe to collections');
+        }
+    } catch (error) {
+        console.error('Error assigning recipe to collections:', error);
+        UI.showNotification('Error updating collections', 'error');
+    } finally {
+        UI.hideButtonLoading(submitBtn);
+        AppState.currentRecipeIdForAssignment = null;
+    }
+}
+
 // Initialize app when DOM is ready
 if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', initApp);
@@ -542,6 +838,12 @@ if (typeof window !== 'undefined') {
         scanPantryImage: scanPantryImage,
         saveRecipe: saveRecipe,
         loadRecipes: loadRecipes,
-        deleteRecipe: deleteRecipe
+        deleteRecipe: deleteRecipe,
+        // Collections exports
+        createCollection: createCollection,
+        getCollections: getCollections,
+        renameCollection: renameCollection,
+        deleteCollection: deleteCollection,
+        assignRecipeToCollections: assignRecipeToCollections
     };
 }

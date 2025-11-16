@@ -615,6 +615,13 @@ body {
     margin-bottom: var(--spacing-sm);
 }
 
+.saved-recipe-actions {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xs);
+    align-items: flex-end;
+}
+
 .saved-recipe-details {
     margin-top: var(--spacing-md);
     padding-top: var(--spacing-md);
@@ -668,6 +675,231 @@ body {
 }
 
 /* ==================== */
+/* Recipe Collections   */
+/* ==================== */
+
+.collections-selector {
+    margin-bottom: var(--spacing-md);
+    background: var(--pastel-lavender);
+    border-radius: var(--radius-md);
+    padding: var(--spacing-sm);
+}
+
+.collections-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: var(--spacing-sm);
+}
+
+.collections-header label {
+    font-weight: 600;
+    font-size: 0.875rem;
+    color: var(--text-dark);
+}
+
+.collections-list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xs);
+    max-height: 200px;
+    overflow-y: auto;
+}
+
+.collection-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: var(--spacing-xs) var(--spacing-sm);
+    background: var(--white);
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    transition: all 0.2s ease;
+    border: 2px solid transparent;
+}
+
+.collection-item:hover {
+    background: var(--pastel-blue);
+}
+
+.collection-item.active {
+    border-color: var(--primary);
+    background: var(--white);
+}
+
+.collection-name {
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: var(--text-dark);
+}
+
+.collection-count {
+    font-size: 0.75rem;
+    background: var(--pastel-mint);
+    color: var(--text-medium);
+    padding: 2px 8px;
+    border-radius: var(--radius-full);
+    font-weight: 600;
+}
+
+.current-collection-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: var(--spacing-sm);
+    padding-bottom: var(--spacing-sm);
+    border-bottom: 1px solid var(--border);
+}
+
+.current-collection-header h3 {
+    font-size: 1rem;
+    color: var(--text-dark);
+    margin: 0;
+}
+
+.collection-actions {
+    position: relative;
+}
+
+.btn-icon {
+    background: transparent;
+    border: none;
+    padding: var(--spacing-xs);
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    color: var(--text-medium);
+    transition: all 0.2s ease;
+}
+
+.btn-icon:hover {
+    background: var(--pastel-lavender);
+    color: var(--text-dark);
+}
+
+.collection-menu {
+    position: absolute;
+    right: 0;
+    top: 100%;
+    background: var(--white);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    box-shadow: 0 4px 16px var(--shadow);
+    z-index: 50;
+    min-width: 180px;
+}
+
+.menu-item {
+    display: block;
+    width: 100%;
+    text-align: left;
+    padding: var(--spacing-sm);
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-size: 0.875rem;
+    color: var(--text-dark);
+    transition: background 0.2s ease;
+}
+
+.menu-item:hover {
+    background: var(--pastel-blue);
+}
+
+.menu-item.danger {
+    color: #ef4444;
+}
+
+.menu-item.danger:hover {
+    background: #fef2f2;
+}
+
+/* Modal Styles for Collections */
+.modal-small {
+    max-width: 400px;
+}
+
+.modal-subtitle {
+    font-size: 0.875rem;
+    color: var(--text-light);
+    margin-bottom: var(--spacing-md);
+}
+
+.modal-actions {
+    display: flex;
+    gap: var(--spacing-sm);
+    justify-content: flex-end;
+    margin-top: var(--spacing-lg);
+}
+
+.collections-checkbox-list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+    max-height: 250px;
+    overflow-y: auto;
+}
+
+.collection-checkbox-item {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    padding: var(--spacing-sm);
+    background: var(--pastel-lavender);
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    transition: background 0.2s ease;
+}
+
+.collection-checkbox-item:hover {
+    background: var(--pastel-blue);
+}
+
+.collection-checkbox-item input[type="checkbox"] {
+    width: 18px;
+    height: 18px;
+    accent-color: var(--primary);
+}
+
+.collection-checkbox-item label {
+    cursor: pointer;
+    font-size: 0.875rem;
+    font-weight: 500;
+}
+
+/* Add to Collection Button in Recipe Cards */
+.add-to-collection-btn {
+    background: var(--pastel-peach);
+    color: var(--text-dark);
+    border: none;
+    padding: var(--spacing-xs) var(--spacing-sm);
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    font-size: 0.75rem;
+    font-weight: 600;
+    transition: all 0.2s ease;
+}
+
+.add-to-collection-btn:hover {
+    background: var(--pastel-yellow);
+    transform: translateY(-1px);
+}
+
+.recipe-collections-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-xs);
+    margin-top: var(--spacing-xs);
+}
+
+.collection-tag {
+    background: var(--pastel-mint);
+    color: var(--text-medium);
+    font-size: 0.7rem;
+    padding: 2px 8px;
+    border-radius: var(--radius-full);
+    font-weight: 500;
+}
+
 /* Footer               */
 /* ==================== */
 

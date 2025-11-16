@@ -194,6 +194,38 @@
                         <p>Your personal recipe collection</p>
                     </div>
                     <div class="card-body">
+                        <!-- Collections Selector -->
+                        <div class="collections-selector">
+                            <div class="collections-header">
+                                <label>Collections:</label>
+                                <button id="new-collection-btn" class="btn btn-small btn-secondary">+ New</button>
+                            </div>
+                            <div id="collections-list" class="collections-list">
+                                <div class="collection-item active" data-collection-id="all">
+                                    <span class="collection-name">All Recipes</span>
+                                    <span class="collection-count">0</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Current Collection Header -->
+                        <div id="current-collection-header" class="current-collection-header" style="display: none;">
+                            <h3 id="current-collection-name">All Recipes</h3>
+                            <div class="collection-actions">
+                                <button id="collection-menu-btn" class="btn btn-icon" title="Collection options">
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                                        <circle cx="12" cy="5" r="2"></circle>
+                                        <circle cx="12" cy="12" r="2"></circle>
+                                        <circle cx="12" cy="19" r="2"></circle>
+                                    </svg>
+                                </button>
+                                <div id="collection-menu" class="collection-menu" style="display: none;">
+                                    <button id="rename-collection-btn" class="menu-item">Rename collection</button>
+                                    <button id="delete-collection-btn" class="menu-item danger">Delete collection</button>
+                                </div>
+                            </div>
+                        </div>
+
                         <div id="saved-recipes" class="saved-recipes">
                             <div class="empty-state">
                                 <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
@@ -288,6 +320,60 @@
                 </svg>
                 Continue with Google
             </button>
+        </div>
+    </div>
+
+    <!-- Create Collection Modal -->
+    <div id="create-collection-modal" class="modal" style="display: none;">
+        <div class="modal-content modal-small">
+            <span class="modal-close" data-modal="create-collection-modal">&times;</span>
+            <h2>Create New Collection</h2>
+            <form id="create-collection-form">
+                <div class="form-group">
+                    <label for="collection-name-input">Collection Name</label>
+                    <input type="text" id="collection-name-input" placeholder="e.g., Weeknight Dinners" required maxlength="50">
+                </div>
+                <div class="modal-actions">
+                    <button type="button" class="btn btn-secondary" data-modal="create-collection-modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Create</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Rename Collection Modal -->
+    <div id="rename-collection-modal" class="modal" style="display: none;">
+        <div class="modal-content modal-small">
+            <span class="modal-close" data-modal="rename-collection-modal">&times;</span>
+            <h2>Rename Collection</h2>
+            <form id="rename-collection-form">
+                <div class="form-group">
+                    <label for="rename-collection-input">New Name</label>
+                    <input type="text" id="rename-collection-input" placeholder="Enter new name" required maxlength="50">
+                </div>
+                <div class="modal-actions">
+                    <button type="button" class="btn btn-secondary" data-modal="rename-collection-modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Rename</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Assign to Collections Modal -->
+    <div id="assign-collections-modal" class="modal" style="display: none;">
+        <div class="modal-content modal-small">
+            <span class="modal-close" data-modal="assign-collections-modal">&times;</span>
+            <h2>Add to Collections</h2>
+            <p class="modal-subtitle">Select collections for this recipe:</p>
+            <form id="assign-collections-form">
+                <div id="collections-checkbox-list" class="collections-checkbox-list">
+                    <!-- Checkboxes will be rendered here -->
+                </div>
+                <div class="modal-actions">
+                    <button type="button" class="btn btn-secondary" data-modal="assign-collections-modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Save</button>
+                </div>
+            </form>
         </div>
     </div>
 
