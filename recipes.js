@@ -5,7 +5,7 @@
  */
 
 // Toggle between AI and mock mode
-const USE_AI_RECIPES = true;
+const USE_AI_RECIPES = false;
 
 /**
  * Generate unique recipe ID

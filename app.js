@@ -153,7 +153,7 @@ function setupEventListeners() {
             UI.switchTab(tabName);
 
             // Load planner data when switching to planner tab
-            if (tabName === 'planner' && AppState.currentUser) {
+            if (tabName === 'planner') {
                 loadPlannerData();
             }
 
@@ -896,10 +896,8 @@ async function handleAssignCollections(e) {
  * Load planner data for current week
  */
 async function loadPlannerData() {
-    if (!AppState.currentUser) {
-        UI.showNotification('Please sign in to use the meal planner', 'error');
-        return;
-    }
+    // Removed auth check to allow offline usage
+
 
     try {
         // Get current week ID (uses weekOffset from planner.js)
@@ -952,10 +950,8 @@ async function handleNextWeek() {
  * @param {string} dateString - Date to plan meal for
  */
 async function handleOpenRecipeSelection(dateString) {
-    if (!AppState.currentUser) {
-        UI.showNotification('Please sign in to plan meals', 'error');
-        return;
-    }
+    // Removed auth check to allow offline usage
+
 
     AppState.selectedDateForPlanning = dateString;
 
